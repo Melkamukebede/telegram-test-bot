@@ -11,4 +11,4 @@ enabled = true
 
 [[kv_namespaces]]
    binding = "USER_INFO"
-   id = "your-namespace-id-here"
+   id = "ca10278affd745bc81eb86d1df0e43d2"
