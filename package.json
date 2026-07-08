@@ -1,0 +1,17 @@
+{
+  "name": "telegram-test-bot",
+  "version": "1.0.0",
+  "description": "Sample Telegram bot running on Cloudflare Workers using grammy",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "grammy": "^1.28.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}
