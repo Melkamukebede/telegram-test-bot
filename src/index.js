@@ -28,7 +28,22 @@ function createBot(env) {
   bot.command("time", async (ctx) => {
     await ctx.reply(`Current UTC time: ${new Date().toISOString()}`);
   });
+bot.command("setinfo", async (ctx) => {
+  const info = ctx.match;
+  if (!info) {
+    await ctx.reply("Usage: /setinfo your text here");
+    return;
+  }
+  const userId = ctx.from.id.toString();
+  await env.USER_INFO.put(userId, info);
+  await ctx.reply("Saved! I'll remember that.");
+});
 
+bot.command("myinfo", async (ctx) => {
+  const userId = ctx.from.id.toString();
+  const stored = await env.USER_INFO.get(userId);
+  await ctx.reply(stored ? `Here's what I have saved: ${stored}` : "I don't have anything saved for you yet. Try /setinfo first.");
+});
   // --- Plain text fallback (non-command messages) ---
   bot.on("message:text", async (ctx) => {
     await ctx.reply(`You said: "${ctx.message.text}"`);
