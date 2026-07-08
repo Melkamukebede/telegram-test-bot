@@ -2,13 +2,9 @@ name = "telegram-test-bot"
 main = "src/index.js"
 compatibility_date = "2026-07-01"
 
-# Secrets (TELEGRAM_BOT_TOKEN) are NOT set here.
-# Set them via: wrangler secret put TELEGRAM_BOT_TOKEN
-# or through the Cloudflare dashboard > Workers > Settings > Variables.
-
 [observability]
 enabled = true
 
 [[kv_namespaces]]
-   binding = "USER_INFO"
-   id = "ca10278affd745bc81eb86d1df0e43d2"
+binding = "USER_INFO"
+id = "ca10278affd745bc81eb86d1df0e43d2"
