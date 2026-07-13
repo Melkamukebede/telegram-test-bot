@@ -1,4 +1,4 @@
-import { Bot, webhookCallback } from "grammy";
+import { Bot, webhookCallback, InlineKeyboard } from "grammy";
 
 function createBot(env) {
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
@@ -15,22 +15,51 @@ function createBot(env) {
     await env.USER_INFO.put(userId, JSON.stringify(data));
   }
 
+  const JOKES = [
+    "Why do programmers prefer dark mode? Because light attracts bugs.",
+    "There are 10 types of people: those who understand binary, and those who don't.",
+    "Why do Java developers wear glasses? Because they don't C#.",
+    "A SQL query walks into a bar, sees two tables, and asks: 'Can I join you?'",
+    "I would tell you a UDP joke, but you might not get it.",
+  ];
+
+  // ================================
+  // Button menu
+  // ================================
+  function mainMenu() {
+    return new InlineKeyboard()
+      .text("📋 My Info", "myinfo")
+      .text("🗑 Delete Info", "deleteinfo")
+      .row()
+      .text("🎲 Roll Dice", "roll")
+      .text("🪙 Flip Coin", "flip")
+      .row()
+      .text("😂 Joke", "joke")
+      .text("🕐 Time", "time");
+  }
+
   // ================================
   // Basic commands
   // ================================
   bot.command("start", async (ctx) => {
     await ctx.reply(
-      "Hey! I'm a test bot running on Cloudflare Workers.\n\nTry /help to see everything I can do."
+      "Hey! I'm a test bot running on Cloudflare Workers.\n\nTap a button below, or type /help for text commands.",
+      { reply_markup: mainMenu() }
     );
+  });
+
+  bot.command("menu", async (ctx) => {
+    await ctx.reply("What would you like to do?", { reply_markup: mainMenu() });
   });
 
   bot.command("help", async (ctx) => {
     await ctx.reply(
       "Commands:\n" +
+        "/menu - show button menu\n" +
         "/set <field> <value> - save a field, e.g. /set name Melkamu\n" +
         "/get <field> - show one saved field\n" +
         "/myinfo - show everything saved\n" +
-        "/deleteinfo - erase a field, or everything\n" +
+        "/deleteinfo [field] - erase a field, or everything if no field given\n" +
         "/echo <text> - I repeat it back\n" +
         "/time - current UTC time\n" +
         "/joke - a random programming joke\n" +
@@ -105,7 +134,6 @@ function createBot(env) {
     const data = await getUserData(userId);
 
     if (!field) {
-      // No field specified - wipe everything
       await env.USER_INFO.delete(userId);
       await ctx.reply("Done — I've erased everything saved for you.");
       return;
@@ -134,14 +162,7 @@ function createBot(env) {
   });
 
   bot.command("joke", async (ctx) => {
-    const jokes = [
-      "Why do programmers prefer dark mode? Because light attracts bugs.",
-      "There are 10 types of people: those who understand binary, and those who don't.",
-      "Why do Java developers wear glasses? Because they don't C#.",
-      "A SQL query walks into a bar, sees two tables, and asks: 'Can I join you?'",
-      "I would tell you a UDP joke, but you might not get it.",
-    ];
-    const pick = jokes[Math.floor(Math.random() * jokes.length)];
+    const pick = JOKES[Math.floor(Math.random() * JOKES.length)];
     await ctx.reply(pick);
   });
 
@@ -153,6 +174,53 @@ function createBot(env) {
   bot.command("flip", async (ctx) => {
     const result = Math.random() < 0.5 ? "Heads" : "Tails";
     await ctx.reply(`🪙 ${result}`);
+  });
+
+  // ================================
+  // Button tap handlers (callback queries)
+  // ================================
+  bot.callbackQuery("myinfo", async (ctx) => {
+    const userId = ctx.from.id.toString();
+    const data = await getUserData(userId);
+    const fields = Object.keys(data);
+
+    const text =
+      fields.length === 0
+        ? "You haven't saved anything yet. Try /set name Melkamu"
+        : "Here's everything I have saved:\n" + fields.map((k) => `${k}: ${data[k]}`).join("\n");
+
+    await ctx.answerCallbackQuery();
+    await ctx.reply(text);
+  });
+
+  bot.callbackQuery("deleteinfo", async (ctx) => {
+    const userId = ctx.from.id.toString();
+    await env.USER_INFO.delete(userId);
+    await ctx.answerCallbackQuery();
+    await ctx.reply("Done — I've erased everything saved for you.");
+  });
+
+  bot.callbackQuery("roll", async (ctx) => {
+    const roll = Math.floor(Math.random() * 6) + 1;
+    await ctx.answerCallbackQuery();
+    await ctx.reply(`🎲 You rolled a ${roll}`);
+  });
+
+  bot.callbackQuery("flip", async (ctx) => {
+    const result = Math.random() < 0.5 ? "Heads" : "Tails";
+    await ctx.answerCallbackQuery();
+    await ctx.reply(`🪙 ${result}`);
+  });
+
+  bot.callbackQuery("joke", async (ctx) => {
+    const pick = JOKES[Math.floor(Math.random() * JOKES.length)];
+    await ctx.answerCallbackQuery();
+    await ctx.reply(pick);
+  });
+
+  bot.callbackQuery("time", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.reply(`Current UTC time: ${new Date().toISOString()}`);
   });
 
   // ================================
