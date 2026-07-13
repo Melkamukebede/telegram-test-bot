@@ -1,82 +1,124 @@
 import { Bot, webhookCallback } from "grammy";
 
-// The bot instance is created fresh per-request using the token from
-// the environment, since Cloudflare Workers don't share global state
-// reliably across invocations the way a normal Node process would.
 function createBot(env) {
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+
+  // ================================
+  // Helpers for structured storage
+  // ================================
+  async function getUserData(userId) {
+    const raw = await env.USER_INFO.get(userId);
+    return raw ? JSON.parse(raw) : {};
+  }
+
+  async function saveUserData(userId, data) {
+    await env.USER_INFO.put(userId, JSON.stringify(data));
+  }
 
   // ================================
   // Basic commands
   // ================================
   bot.command("start", async (ctx) => {
     await ctx.reply(
-      "Hey! I'm a test bot running on Cloudflare Workers.\n\n" +
-        "Try /help to see everything I can do."
+      "Hey! I'm a test bot running on Cloudflare Workers.\n\nTry /help to see everything I can do."
     );
   });
 
   bot.command("help", async (ctx) => {
     await ctx.reply(
       "Commands:\n" +
-        "/setinfo - save some info about yourself\n" +
-        "/myinfo - show what I have saved\n" +
-        "/deleteinfo - erase your saved info\n" +
+        "/set <field> <value> - save a field, e.g. /set name Melkamu\n" +
+        "/get <field> - show one saved field\n" +
+        "/myinfo - show everything saved\n" +
+        "/deleteinfo - erase a field, or everything\n" +
         "/echo <text> - I repeat it back\n" +
         "/time - current UTC time\n" +
         "/joke - a random programming joke\n" +
         "/roll - roll a dice (1-6)\n" +
-        "/flip - flip a coin\n" +
-        "/cancel - cancel a pending /setinfo request"
+        "/flip - flip a coin"
     );
   });
 
   // ================================
-  // Saved info (KV storage) - multi-step flow
+  // Structured saved info (multiple fields per user)
   // ================================
-  bot.command("setinfo", async (ctx) => {
-    const info = ctx.match;
+  bot.command("set", async (ctx) => {
     const userId = ctx.from.id.toString();
+    const input = ctx.match.trim();
 
-    if (info) {
-      // One-liner style still works: /setinfo some text
-      await env.USER_INFO.put(userId, info);
-      await ctx.reply("Saved! I'll remember that.");
+    if (!input) {
+      await ctx.reply("Usage: /set <field> <value>\nExample: /set name Melkamu");
       return;
     }
 
-    // No text after the command - wait for their next message
-    await env.USER_INFO.put(`awaiting:${userId}`, "true");
-    await ctx.reply("Sure — send me the info you want me to save. (Or /cancel to stop.)");
+    const spaceIndex = input.indexOf(" ");
+    if (spaceIndex === -1) {
+      await ctx.reply("Please include a value too.\nExample: /set name Melkamu");
+      return;
+    }
+
+    const field = input.slice(0, spaceIndex).toLowerCase();
+    const value = input.slice(spaceIndex + 1);
+
+    const data = await getUserData(userId);
+    data[field] = value;
+    await saveUserData(userId, data);
+
+    await ctx.reply(`Saved: ${field} = ${value}`);
+  });
+
+  bot.command("get", async (ctx) => {
+    const userId = ctx.from.id.toString();
+    const field = ctx.match.trim().toLowerCase();
+
+    if (!field) {
+      await ctx.reply("Usage: /get <field>\nExample: /get name");
+      return;
+    }
+
+    const data = await getUserData(userId);
+    await ctx.reply(
+      data[field] !== undefined
+        ? `${field}: ${data[field]}`
+        : `Nothing saved for "${field}" yet. Try /set ${field} <value>`
+    );
   });
 
   bot.command("myinfo", async (ctx) => {
     const userId = ctx.from.id.toString();
-    const stored = await env.USER_INFO.get(userId);
-    await ctx.reply(
-      stored
-        ? `Here's what I have saved: ${stored}`
-        : "I don't have anything saved for you yet. Try /setinfo first."
-    );
+    const data = await getUserData(userId);
+    const fields = Object.keys(data);
+
+    if (fields.length === 0) {
+      await ctx.reply("You haven't saved anything yet. Try /set name Melkamu");
+      return;
+    }
+
+    const lines = fields.map((key) => `${key}: ${data[key]}`);
+    await ctx.reply("Here's everything I have saved:\n" + lines.join("\n"));
   });
 
   bot.command("deleteinfo", async (ctx) => {
     const userId = ctx.from.id.toString();
-    const existing = await env.USER_INFO.get(userId);
+    const field = ctx.match.trim().toLowerCase();
 
-    if (!existing) {
-      await ctx.reply("There's nothing saved to delete.");
+    const data = await getUserData(userId);
+
+    if (!field) {
+      // No field specified - wipe everything
+      await env.USER_INFO.delete(userId);
+      await ctx.reply("Done — I've erased everything saved for you.");
       return;
     }
 
-    await env.USER_INFO.delete(userId);
-    await ctx.reply("Done — I've erased your saved info.");
-  });
+    if (data[field] === undefined) {
+      await ctx.reply(`Nothing saved under "${field}".`);
+      return;
+    }
 
-  bot.command("cancel", async (ctx) => {
-    const userId = ctx.from.id.toString();
-    await env.USER_INFO.delete(`awaiting:${userId}`);
-    await ctx.reply("Cancelled. Nothing was saved.");
+    delete data[field];
+    await saveUserData(userId, data);
+    await ctx.reply(`Deleted "${field}".`);
   });
 
   // ================================
@@ -114,19 +156,9 @@ function createBot(env) {
   });
 
   // ================================
-  // Plain text fallback (checks if we're mid-/setinfo flow first)
+  // Plain text fallback
   // ================================
   bot.on("message:text", async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const isAwaiting = await env.USER_INFO.get(`awaiting:${userId}`);
-
-    if (isAwaiting) {
-      await env.USER_INFO.put(userId, ctx.message.text);
-      await env.USER_INFO.delete(`awaiting:${userId}`);
-      await ctx.reply("Got it — saved! Check anytime with /myinfo.");
-      return;
-    }
-
     await ctx.reply(`You said: "${ctx.message.text}"`);
   });
 
@@ -135,8 +167,6 @@ function createBot(env) {
 
 export default {
   async fetch(request, env, ctx) {
-    // Simple GET route so you can confirm the Worker is alive
-    // by visiting the URL directly in a browser.
     if (request.method === "GET") {
       return new Response("Telegram bot Worker is running.", { status: 200 });
     }
