@@ -8,3 +8,7 @@ enabled = true
 [[kv_namespaces]]
 binding = "USER_INFO"
 id = "ca10278affd745bc81eb86d1df0e43d2"
+[[d1_databases]]
+binding = "DB"
+database_name = "freshman_hub_db"
+database_id = "3945bdfa-b5c6-4a47-8611-f60ee2ee2c49"
