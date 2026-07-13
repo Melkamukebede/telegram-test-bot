@@ -3,276 +3,180 @@ import { Bot, webhookCallback, InlineKeyboard } from "grammy";
 function createBot(env) {
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 
-  // ================================
-  // Storage helpers
-  // ================================
-  async function getUserData(userId) {
-    const raw = await env.USER_INFO.get(userId);
-    return raw ? JSON.parse(raw) : {};
-  }
-
-  async function saveUserData(userId, data) {
-    await env.USER_INFO.put(userId, JSON.stringify(data));
-  }
-
-  const JOKES = [
-    "Why do programmers prefer dark mode? Because light attracts bugs.",
-    "There are 10 types of people: those who understand binary, and those who don't.",
-    "Why do Java developers wear glasses? Because they don't C#.",
-    "A SQL query walks into a bar, sees two tables, and asks: 'Can I join you?'",
-    "I would tell you a UDP joke, but you might not get it.",
+  const UNIVERSITIES = [
+    "AAU (Addis Ababa University)",
+    "Adama Science & Technology University",
+    "Bahir Dar University",
+    "Mekelle University",
+    "Jimma University",
+    "Hawassa University",
+    "Dilla University",
+    "Other",
   ];
 
-  // ================================
-  // Screens (each returns {text, keyboard})
-  // ================================
-  function mainMenuScreen() {
-    const keyboard = new InlineKeyboard()
-      .text("📋 Info", "screen_info")
-      .text("🎉 Fun", "screen_fun")
-      .row()
-      .text("ℹ️ Help", "screen_help");
-    return { text: "Main Menu\nWhat would you like to do?", keyboard };
-  }
+  const MAJORS = [
+    "Civil Engineering",
+    "Computer Science / Software Engineering",
+    "Medicine / Health Sciences",
+    "Business / Economics / Accounting",
+    "Law",
+    "Education / Pedagogy",
+    "Nursing",
+    "Electrical Engineering",
+    "Mechanical Engineering",
+    "Social Sciences",
+    "Natural Sciences",
+    "Mathematics / Statistics",
+    "Other",
+  ];
 
-  function infoScreen() {
-    const keyboard = new InlineKeyboard()
-      .text("View My Info", "myinfo")
-      .row()
-      .text("Delete My Info", "deleteinfo")
-      .row()
-      .text("⬅ Back", "main_menu");
-    return {
-      text: "Info Menu\nUse /set <field> <value> to save something (e.g. /set name Melkamu), then view or delete it below.",
-      keyboard,
-    };
-  }
+  const CITIES = [
+    "Addis Ababa",
+    "Gondar",
+    "Bahir Dar",
+    "Hawassa",
+    "Dire Dawa",
+    "Mekelle",
+    "Jimma",
+    "Other",
+  ];
 
-  function funScreen() {
-    const keyboard = new InlineKeyboard()
-      .text("🎲 Roll Dice", "roll")
-      .text("🪙 Flip Coin", "flip")
-      .row()
-      .text("😂 Joke", "joke")
-      .text("🕐 Time", "time")
-      .row()
-      .text("⬅ Back", "main_menu");
-    return { text: "Fun Menu\nPick something:", keyboard };
-  }
-
-  function helpScreen() {
-    const keyboard = new InlineKeyboard().text("⬅ Back", "main_menu");
-    return {
-      text:
-        "Commands:\n" +
-        "/menu - open the button menu\n" +
-        "/set <field> <value> - save a field\n" +
-        "/get <field> - show one saved field\n" +
-        "/myinfo - show everything saved\n" +
-        "/deleteinfo [field] - erase a field, or everything\n" +
-        "/echo <text> - I repeat it back",
-      keyboard,
-    };
-  }
+  const SEMESTERS = ["Semester 1 (September intake)", "Semester 2 (February intake)"];
 
   // ================================
-  // Entry commands
+  // DB helpers
+  // ================================
+  async function getUser(telegramId) {
+    const result = await env.DB.prepare("SELECT * FROM users WHERE telegram_id = ?")
+      .bind(telegramId)
+      .first();
+    return result || null;
+  }
+
+  async function upsertUser(telegramId, fields) {
+    const existing = await getUser(telegramId);
+    if (existing) {
+      const keys = Object.keys(fields);
+      const setClause = keys.map((k) => `${k} = ?`).join(", ");
+      await env.DB.prepare(`UPDATE users SET ${setClause} WHERE telegram_id = ?`)
+        .bind(...keys.map((k) => fields[k]), telegramId)
+        .run();
+    } else {
+      const keys = Object.keys(fields);
+      const placeholders = keys.map(() => "?").join(", ");
+      await env.DB.prepare(
+        `INSERT INTO users (telegram_id, ${keys.join(", ")}) VALUES (?, ${placeholders})`
+      )
+        .bind(telegramId, ...keys.map((k) => fields[k]))
+        .run();
+    }
+  }
+
+  function numberedList(items) {
+    return items.map((item, i) => `${i + 1}. ${item}`).join("\n");
+  }
+
+  // ================================
+  // Registration flow
   // ================================
   bot.command("start", async (ctx) => {
-    const { text, keyboard } = mainMenuScreen();
-    await ctx.reply(`Hey! I'm a test bot running on Cloudflare Workers.\n\n${text}`, {
-      reply_markup: keyboard,
-    });
-  });
-
-  bot.command("menu", async (ctx) => {
-    const { text, keyboard } = mainMenuScreen();
-    await ctx.reply(text, { reply_markup: keyboard });
-  });
-
-  bot.command("help", async (ctx) => {
-    const { text, keyboard } = helpScreen();
-    await ctx.reply(text, { reply_markup: keyboard });
-  });
-
-  // ================================
-  // Screen navigation (edits the same message in place)
-  // ================================
-  bot.callbackQuery("main_menu", async (ctx) => {
-    const { text, keyboard } = mainMenuScreen();
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText(text, { reply_markup: keyboard });
-  });
-
-  bot.callbackQuery("screen_info", async (ctx) => {
-    const { text, keyboard } = infoScreen();
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText(text, { reply_markup: keyboard });
-  });
-
-  bot.callbackQuery("screen_fun", async (ctx) => {
-    const { text, keyboard } = funScreen();
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText(text, { reply_markup: keyboard });
-  });
-
-  bot.callbackQuery("screen_help", async (ctx) => {
-    const { text, keyboard } = helpScreen();
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText(text, { reply_markup: keyboard });
-  });
-
-  // ================================
-  // Actions (stay on the Info screen, editing in place)
-  // ================================
-  bot.callbackQuery("myinfo", async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const data = await getUserData(userId);
-    const fields = Object.keys(data);
-
-    const body =
-      fields.length === 0
-        ? "You haven't saved anything yet.\nTry /set name Melkamu"
-        : "Your saved info:\n" + fields.map((k) => `${k}: ${data[k]}`).join("\n");
-
-    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_info");
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText(body, { reply_markup: keyboard });
-  });
-
-  bot.callbackQuery("deleteinfo", async (ctx) => {
-    const userId = ctx.from.id.toString();
-    await env.USER_INFO.delete(userId);
-
-    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_info");
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText("Done — everything saved for you has been erased.", {
-      reply_markup: keyboard,
-    });
-  });
-
-  // ================================
-  // Actions (stay on the Fun screen, editing in place)
-  // ================================
-  bot.callbackQuery("roll", async (ctx) => {
-    const roll = Math.floor(Math.random() * 6) + 1;
-    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_fun");
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText(`🎲 You rolled a ${roll}`, { reply_markup: keyboard });
-  });
-
-  bot.callbackQuery("flip", async (ctx) => {
-    const result = Math.random() < 0.5 ? "Heads" : "Tails";
-    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_fun");
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText(`🪙 ${result}`, { reply_markup: keyboard });
-  });
-
-  bot.callbackQuery("joke", async (ctx) => {
-    const pick = JOKES[Math.floor(Math.random() * JOKES.length)];
-    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_fun");
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText(pick, { reply_markup: keyboard });
-  });
-
-  bot.callbackQuery("time", async (ctx) => {
-    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_fun");
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText(`Current UTC time: ${new Date().toISOString()}`, {
-      reply_markup: keyboard,
-    });
-  });
-
-  // ================================
-  // Text-based commands (unchanged, still work alongside buttons)
-  // ================================
-  bot.command("set", async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const input = ctx.match.trim();
-
-    if (!input) {
-      await ctx.reply("Usage: /set <field> <value>\nExample: /set name Melkamu");
-      return;
-    }
-
-    const spaceIndex = input.indexOf(" ");
-    if (spaceIndex === -1) {
-      await ctx.reply("Please include a value too.\nExample: /set name Melkamu");
-      return;
-    }
-
-    const field = input.slice(0, spaceIndex).toLowerCase();
-    const value = input.slice(spaceIndex + 1);
-
-    const data = await getUserData(userId);
-    data[field] = value;
-    await saveUserData(userId, data);
-
-    await ctx.reply(`Saved: ${field} = ${value}`);
-  });
-
-  bot.command("get", async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const field = ctx.match.trim().toLowerCase();
-
-    if (!field) {
-      await ctx.reply("Usage: /get <field>\nExample: /get name");
-      return;
-    }
-
-    const data = await getUserData(userId);
     await ctx.reply(
-      data[field] !== undefined
-        ? `${field}: ${data[field]}`
-        : `Nothing saved for "${field}" yet. Try /set ${field} <value>`
+      "🎓 Welcome to Freshman Hub 2026! 🎓\n\n" +
+        "I'll ask you 4 quick questions to set you up. Type /register when you're ready."
     );
   });
 
-  bot.command("myinfo", async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const data = await getUserData(userId);
-    const fields = Object.keys(data);
+  bot.command("register", async (ctx) => {
+    const telegramId = ctx.from.id.toString();
+    await upsertUser(telegramId, { step: "awaiting_university", registered_at: new Date().toISOString() });
 
-    if (fields.length === 0) {
-      await ctx.reply("You haven't saved anything yet. Try /set name Melkamu");
-      return;
-    }
-
-    const lines = fields.map((key) => `${key}: ${data[key]}`);
-    await ctx.reply("Here's everything I have saved:\n" + lines.join("\n"));
+    await ctx.reply(
+      "Which university will you be attending?\n\nSelect a number:\n" + numberedList(UNIVERSITIES)
+    );
   });
 
-  bot.command("deleteinfo", async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const field = ctx.match.trim().toLowerCase();
-    const data = await getUserData(userId);
-
-    if (!field) {
-      await env.USER_INFO.delete(userId);
-      await ctx.reply("Done — I've erased everything saved for you.");
-      return;
-    }
-
-    if (data[field] === undefined) {
-      await ctx.reply(`Nothing saved under "${field}".`);
-      return;
-    }
-
-    delete data[field];
-    await saveUserData(userId, data);
-    await ctx.reply(`Deleted "${field}".`);
-  });
-
-  bot.command("echo", async (ctx) => {
-    const text = ctx.match;
-    await ctx.reply(text.length > 0 ? text : "Usage: /echo your message here");
-  });
-
-  // ================================
-  // Plain text fallback
-  // ================================
   bot.on("message:text", async (ctx) => {
-    await ctx.reply(`You said: "${ctx.message.text}"`);
+    const telegramId = ctx.from.id.toString();
+    const text = ctx.message.text.trim();
+    const user = await getUser(telegramId);
+
+    if (!user || !user.step) {
+      await ctx.reply("Type /register to get started, or /help for commands.");
+      return;
+    }
+
+    // --- Step: university ---
+    if (user.step === "awaiting_university") {
+      const index = parseInt(text) - 1;
+      const value =
+        index >= 0 && index < UNIVERSITIES.length - 1
+          ? UNIVERSITIES[index]
+          : text; // "Other" or free text fallback
+
+      await upsertUser(telegramId, { university: value, step: "awaiting_major" });
+      await ctx.reply("📚 What is your intended major or field of study?\n\nSelect a number:\n" + numberedList(MAJORS));
+      return;
+    }
+
+    // --- Step: major ---
+    if (user.step === "awaiting_major") {
+      const index = parseInt(text) - 1;
+      const value = index >= 0 && index < MAJORS.length - 1 ? MAJORS[index] : text;
+
+      await upsertUser(telegramId, { major: value, step: "awaiting_city" });
+      await ctx.reply("📍 Which city are you currently in?\n\nSelect a number:\n" + numberedList(CITIES));
+      return;
+    }
+
+    // --- Step: city ---
+    if (user.step === "awaiting_city") {
+      const index = parseInt(text) - 1;
+      const value = index >= 0 && index < CITIES.length - 1 ? CITIES[index] : text;
+
+      await upsertUser(telegramId, { city: value, step: "awaiting_semester" });
+      await ctx.reply("📅 Which semester are you starting?\n\nSelect a number:\n" + numberedList(SEMESTERS));
+      return;
+    }
+
+    // --- Step: semester (final step) ---
+    if (user.step === "awaiting_semester") {
+      const index = parseInt(text) - 1;
+      const value = index >= 0 && index < SEMESTERS.length ? SEMESTERS[index] : text;
+
+      await upsertUser(telegramId, { semester: value, step: null });
+
+      const finalUser = await getUser(telegramId);
+      await ctx.reply(
+        "✅ Registration Complete!\n\n" +
+          `University: ${finalUser.university}\n` +
+          `Major: ${finalUser.major}\n` +
+          `City: ${finalUser.city}\n` +
+          `Semester: ${finalUser.semester}\n\n` +
+          "You'll get daily questions starting tomorrow at 8:00 AM. Welcome to Freshman Hub 2026! 🚀"
+      );
+      return;
+    }
+
+    // Fallback if step is something unexpected
+    await ctx.reply("Something went off track — type /register to start over.");
+  });
+
+  bot.command("myinfo", async (ctx) => {
+    const telegramId = ctx.from.id.toString();
+    const user = await getUser(telegramId);
+
+    if (!user || !user.university) {
+      await ctx.reply("You haven't registered yet. Type /register to get started.");
+      return;
+    }
+
+    await ctx.reply(
+      `University: ${user.university}\nMajor: ${user.major}\nCity: ${user.city}\nSemester: ${user.semester}\nStreak: ${user.streak || 0}`
+    );
+  });
+
+  bot.command("help", async (ctx) => {
+    await ctx.reply("/register - start registration\n/myinfo - view your saved info");
   });
 
   return bot;
@@ -281,7 +185,7 @@ function createBot(env) {
 export default {
   async fetch(request, env, ctx) {
     if (request.method === "GET") {
-      return new Response("Telegram bot Worker is running.", { status: 200 });
+      return new Response("Freshman Hub bot is running.", { status: 200 });
     }
 
     const bot = createBot(env);
