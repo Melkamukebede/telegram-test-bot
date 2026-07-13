@@ -4,7 +4,7 @@ function createBot(env) {
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 
   // ================================
-  // Helpers for structured storage
+  // Storage helpers
   // ================================
   async function getUserData(userId) {
     const raw = await env.USER_INFO.get(userId);
@@ -24,52 +24,167 @@ function createBot(env) {
   ];
 
   // ================================
-  // Button menu
+  // Screens (each returns {text, keyboard})
   // ================================
-  function mainMenu() {
-    return new InlineKeyboard()
-      .text("📋 My Info", "myinfo")
-      .text("🗑 Delete Info", "deleteinfo")
+  function mainMenuScreen() {
+    const keyboard = new InlineKeyboard()
+      .text("📋 Info", "screen_info")
+      .text("🎉 Fun", "screen_fun")
       .row()
+      .text("ℹ️ Help", "screen_help");
+    return { text: "Main Menu\nWhat would you like to do?", keyboard };
+  }
+
+  function infoScreen() {
+    const keyboard = new InlineKeyboard()
+      .text("View My Info", "myinfo")
+      .row()
+      .text("Delete My Info", "deleteinfo")
+      .row()
+      .text("⬅ Back", "main_menu");
+    return {
+      text: "Info Menu\nUse /set <field> <value> to save something (e.g. /set name Melkamu), then view or delete it below.",
+      keyboard,
+    };
+  }
+
+  function funScreen() {
+    const keyboard = new InlineKeyboard()
       .text("🎲 Roll Dice", "roll")
       .text("🪙 Flip Coin", "flip")
       .row()
       .text("😂 Joke", "joke")
-      .text("🕐 Time", "time");
+      .text("🕐 Time", "time")
+      .row()
+      .text("⬅ Back", "main_menu");
+    return { text: "Fun Menu\nPick something:", keyboard };
+  }
+
+  function helpScreen() {
+    const keyboard = new InlineKeyboard().text("⬅ Back", "main_menu");
+    return {
+      text:
+        "Commands:\n" +
+        "/menu - open the button menu\n" +
+        "/set <field> <value> - save a field\n" +
+        "/get <field> - show one saved field\n" +
+        "/myinfo - show everything saved\n" +
+        "/deleteinfo [field] - erase a field, or everything\n" +
+        "/echo <text> - I repeat it back",
+      keyboard,
+    };
   }
 
   // ================================
-  // Basic commands
+  // Entry commands
   // ================================
   bot.command("start", async (ctx) => {
-    await ctx.reply(
-      "Hey! I'm a test bot running on Cloudflare Workers.\n\nTap a button below, or type /help for text commands.",
-      { reply_markup: mainMenu() }
-    );
+    const { text, keyboard } = mainMenuScreen();
+    await ctx.reply(`Hey! I'm a test bot running on Cloudflare Workers.\n\n${text}`, {
+      reply_markup: keyboard,
+    });
   });
 
   bot.command("menu", async (ctx) => {
-    await ctx.reply("What would you like to do?", { reply_markup: mainMenu() });
+    const { text, keyboard } = mainMenuScreen();
+    await ctx.reply(text, { reply_markup: keyboard });
   });
 
   bot.command("help", async (ctx) => {
-    await ctx.reply(
-      "Commands:\n" +
-        "/menu - show button menu\n" +
-        "/set <field> <value> - save a field, e.g. /set name Melkamu\n" +
-        "/get <field> - show one saved field\n" +
-        "/myinfo - show everything saved\n" +
-        "/deleteinfo [field] - erase a field, or everything if no field given\n" +
-        "/echo <text> - I repeat it back\n" +
-        "/time - current UTC time\n" +
-        "/joke - a random programming joke\n" +
-        "/roll - roll a dice (1-6)\n" +
-        "/flip - flip a coin"
-    );
+    const { text, keyboard } = helpScreen();
+    await ctx.reply(text, { reply_markup: keyboard });
   });
 
   // ================================
-  // Structured saved info (multiple fields per user)
+  // Screen navigation (edits the same message in place)
+  // ================================
+  bot.callbackQuery("main_menu", async (ctx) => {
+    const { text, keyboard } = mainMenuScreen();
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("screen_info", async (ctx) => {
+    const { text, keyboard } = infoScreen();
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("screen_fun", async (ctx) => {
+    const { text, keyboard } = funScreen();
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("screen_help", async (ctx) => {
+    const { text, keyboard } = helpScreen();
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, { reply_markup: keyboard });
+  });
+
+  // ================================
+  // Actions (stay on the Info screen, editing in place)
+  // ================================
+  bot.callbackQuery("myinfo", async (ctx) => {
+    const userId = ctx.from.id.toString();
+    const data = await getUserData(userId);
+    const fields = Object.keys(data);
+
+    const body =
+      fields.length === 0
+        ? "You haven't saved anything yet.\nTry /set name Melkamu"
+        : "Your saved info:\n" + fields.map((k) => `${k}: ${data[k]}`).join("\n");
+
+    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_info");
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(body, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("deleteinfo", async (ctx) => {
+    const userId = ctx.from.id.toString();
+    await env.USER_INFO.delete(userId);
+
+    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_info");
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText("Done — everything saved for you has been erased.", {
+      reply_markup: keyboard,
+    });
+  });
+
+  // ================================
+  // Actions (stay on the Fun screen, editing in place)
+  // ================================
+  bot.callbackQuery("roll", async (ctx) => {
+    const roll = Math.floor(Math.random() * 6) + 1;
+    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_fun");
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(`🎲 You rolled a ${roll}`, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("flip", async (ctx) => {
+    const result = Math.random() < 0.5 ? "Heads" : "Tails";
+    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_fun");
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(`🪙 ${result}`, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("joke", async (ctx) => {
+    const pick = JOKES[Math.floor(Math.random() * JOKES.length)];
+    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_fun");
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(pick, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("time", async (ctx) => {
+    const keyboard = new InlineKeyboard().text("⬅ Back", "screen_fun");
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(`Current UTC time: ${new Date().toISOString()}`, {
+      reply_markup: keyboard,
+    });
+  });
+
+  // ================================
+  // Text-based commands (unchanged, still work alongside buttons)
   // ================================
   bot.command("set", async (ctx) => {
     const userId = ctx.from.id.toString();
@@ -130,7 +245,6 @@ function createBot(env) {
   bot.command("deleteinfo", async (ctx) => {
     const userId = ctx.from.id.toString();
     const field = ctx.match.trim().toLowerCase();
-
     const data = await getUserData(userId);
 
     if (!field) {
@@ -149,78 +263,9 @@ function createBot(env) {
     await ctx.reply(`Deleted "${field}".`);
   });
 
-  // ================================
-  // Utility / fun commands
-  // ================================
   bot.command("echo", async (ctx) => {
     const text = ctx.match;
     await ctx.reply(text.length > 0 ? text : "Usage: /echo your message here");
-  });
-
-  bot.command("time", async (ctx) => {
-    await ctx.reply(`Current UTC time: ${new Date().toISOString()}`);
-  });
-
-  bot.command("joke", async (ctx) => {
-    const pick = JOKES[Math.floor(Math.random() * JOKES.length)];
-    await ctx.reply(pick);
-  });
-
-  bot.command("roll", async (ctx) => {
-    const roll = Math.floor(Math.random() * 6) + 1;
-    await ctx.reply(`🎲 You rolled a ${roll}`);
-  });
-
-  bot.command("flip", async (ctx) => {
-    const result = Math.random() < 0.5 ? "Heads" : "Tails";
-    await ctx.reply(`🪙 ${result}`);
-  });
-
-  // ================================
-  // Button tap handlers (callback queries)
-  // ================================
-  bot.callbackQuery("myinfo", async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const data = await getUserData(userId);
-    const fields = Object.keys(data);
-
-    const text =
-      fields.length === 0
-        ? "You haven't saved anything yet. Try /set name Melkamu"
-        : "Here's everything I have saved:\n" + fields.map((k) => `${k}: ${data[k]}`).join("\n");
-
-    await ctx.answerCallbackQuery();
-    await ctx.reply(text);
-  });
-
-  bot.callbackQuery("deleteinfo", async (ctx) => {
-    const userId = ctx.from.id.toString();
-    await env.USER_INFO.delete(userId);
-    await ctx.answerCallbackQuery();
-    await ctx.reply("Done — I've erased everything saved for you.");
-  });
-
-  bot.callbackQuery("roll", async (ctx) => {
-    const roll = Math.floor(Math.random() * 6) + 1;
-    await ctx.answerCallbackQuery();
-    await ctx.reply(`🎲 You rolled a ${roll}`);
-  });
-
-  bot.callbackQuery("flip", async (ctx) => {
-    const result = Math.random() < 0.5 ? "Heads" : "Tails";
-    await ctx.answerCallbackQuery();
-    await ctx.reply(`🪙 ${result}`);
-  });
-
-  bot.callbackQuery("joke", async (ctx) => {
-    const pick = JOKES[Math.floor(Math.random() * JOKES.length)];
-    await ctx.answerCallbackQuery();
-    await ctx.reply(pick);
-  });
-
-  bot.callbackQuery("time", async (ctx) => {
-    await ctx.answerCallbackQuery();
-    await ctx.reply(`Current UTC time: ${new Date().toISOString()}`);
   });
 
   // ================================
