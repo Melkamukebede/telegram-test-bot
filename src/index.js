@@ -44,7 +44,60 @@ function createBot(env) {
   const SEMESTERS = ["Semester 1 (September intake)", "Semester 2 (February intake)"];
 
   // ================================
-  // DB helpers
+  // newooooooooooooooo
+  // ================================
+  // Subject resources
+  // ================================
+  async function getSubject(command) {
+    const result = await env.DB.prepare("SELECT * FROM subjects WHERE command = ?")
+      .bind(command)
+      .first();
+    return result || null;
+  }
+
+  async function getAllSubjects() {
+    const result = await env.DB.prepare("SELECT command, display_name FROM subjects").all();
+    return result.results || [];
+  }
+
+  bot.command("subjects", async (ctx) => {
+    const subjects = await getAllSubjects();
+    if (subjects.length === 0) {
+      await ctx.reply("No subjects have been added yet.");
+      return;
+    }
+    const lines = subjects.map((s) => `/${s.command} - ${s.display_name}`);
+    await ctx.reply("📚 Available subjects:\n\n" + lines.join("\n"));
+  });
+
+  bot.command("drive", async (ctx) => {
+    const subjects = await getAllSubjects();
+    await ctx.reply(
+      "📂 Master resource list:\n\n" +
+        subjects.map((s) => `${s.display_name}: use /${s.command}`).join("\n")
+    );
+  });
+
+  // Generic handler: catches /logic, /math, /physics, etc.
+  // by checking if the typed command matches a row in the subjects table.
+  bot.on("message:text", async (ctx, next) => {
+    const text = ctx.message.text.trim();
+    if (!text.startsWith("/")) {
+      await next(); // not a command, let other handlers (registration flow) process it
+      return;
+    }
+
+    const command = text.slice(1).toLowerCase();
+    const subject = await getSubject(command);
+
+    if (subject) {
+      await ctx.reply(`📖 ${subject.display_name}\n\n${subject.drive_link}`);
+      return;
+    }
+
+    await next(); // not a known subject command, pass to other handlers
+  });
+  ///nweooooooooooooooooo
   // ================================
   async function getUser(telegramId) {
     const result = await env.DB.prepare("SELECT * FROM users WHERE telegram_id = ?")
