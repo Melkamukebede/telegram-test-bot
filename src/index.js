@@ -4,105 +4,37 @@ function createBot(env) {
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 
   const UNIVERSITIES = [
-    "AAU (Addis Ababa University)",
-    "Adama Science & Technology University",
-    "Bahir Dar University",
-    "Mekelle University",
-    "Jimma University",
-    "Hawassa University",
-    "Dilla University",
-    "Other",
+    "AAU (Addis Ababa University)", "Adama Science & Technology University",
+    "Bahir Dar University", "Mekelle University", "Jimma University",
+    "Hawassa University", "Dilla University", "Other",
   ];
-
   const MAJORS = [
-    "Civil Engineering",
-    "Computer Science / Software Engineering",
-    "Medicine / Health Sciences",
-    "Business / Economics / Accounting",
-    "Law",
-    "Education / Pedagogy",
-    "Nursing",
-    "Electrical Engineering",
-    "Mechanical Engineering",
-    "Social Sciences",
-    "Natural Sciences",
-    "Mathematics / Statistics",
-    "Other",
+    "Civil Engineering", "Computer Science / Software Engineering",
+    "Medicine / Health Sciences", "Business / Economics / Accounting", "Law",
+    "Education / Pedagogy", "Nursing", "Electrical Engineering",
+    "Mechanical Engineering", "Social Sciences", "Natural Sciences",
+    "Mathematics / Statistics", "Other",
   ];
-
   const CITIES = [
-    "Addis Ababa",
-    "Gondar",
-    "Bahir Dar",
-    "Hawassa",
-    "Dire Dawa",
-    "Mekelle",
-    "Jimma",
-    "Other",
+    "Addis Ababa", "Gondar", "Bahir Dar", "Hawassa", "Dire Dawa",
+    "Mekelle", "Jimma", "Other",
   ];
-
   const SEMESTERS = ["Semester 1 (September intake)", "Semester 2 (February intake)"];
 
-  // ================================
-  // newooooooooooooooo
-  // ================================
-  // Subject resources
-  // ================================
-  async function getSubject(command) {
-    const result = await env.DB.prepare("SELECT * FROM subjects WHERE command = ?")
-      .bind(command)
-      .first();
-    return result || null;
+  function numberedList(items) {
+    return items.map((item, i) => `${i + 1}. ${item}`).join("\n");
   }
 
-  async function getAllSubjects() {
-    const result = await env.DB.prepare("SELECT command, display_name FROM subjects").all();
-    return result.results || [];
+  function isAdmin(ctx) {
+    return ctx.from.id.toString() === env.ADMIN_ID;
   }
 
-  bot.command("subjects", async (ctx) => {
-    const subjects = await getAllSubjects();
-    if (subjects.length === 0) {
-      await ctx.reply("No subjects have been added yet.");
-      return;
-    }
-    const lines = subjects.map((s) => `/${s.command} - ${s.display_name}`);
-    await ctx.reply("📚 Available subjects:\n\n" + lines.join("\n"));
-  });
-
-  bot.command("drive", async (ctx) => {
-    const subjects = await getAllSubjects();
-    await ctx.reply(
-      "📂 Master resource list:\n\n" +
-        subjects.map((s) => `${s.display_name}: use /${s.command}`).join("\n")
-    );
-  });
-
-  // Generic handler: catches /logic, /math, /physics, etc.
-  // by checking if the typed command matches a row in the subjects table.
-  bot.on("message:text", async (ctx, next) => {
-    const text = ctx.message.text.trim();
-    if (!text.startsWith("/")) {
-      await next(); // not a command, let other handlers (registration flow) process it
-      return;
-    }
-
-    const command = text.slice(1).toLowerCase();
-    const subject = await getSubject(command);
-
-    if (subject) {
-      await ctx.reply(`📖 ${subject.display_name}\n\n${subject.drive_link}`);
-      return;
-    }
-
-    await next(); // not a known subject command, pass to other handlers
-  });
-  ///nweooooooooooooooooo
+  // ================================
+  // DB helpers - users
   // ================================
   async function getUser(telegramId) {
     const result = await env.DB.prepare("SELECT * FROM users WHERE telegram_id = ?")
-      .bind(telegramId)
-      .first();
+      .bind(telegramId).first();
     return result || null;
   }
 
@@ -112,124 +44,366 @@ function createBot(env) {
       const keys = Object.keys(fields);
       const setClause = keys.map((k) => `${k} = ?`).join(", ");
       await env.DB.prepare(`UPDATE users SET ${setClause} WHERE telegram_id = ?`)
-        .bind(...keys.map((k) => fields[k]), telegramId)
-        .run();
+        .bind(...keys.map((k) => fields[k]), telegramId).run();
     } else {
       const keys = Object.keys(fields);
       const placeholders = keys.map(() => "?").join(", ");
       await env.DB.prepare(
         `INSERT INTO users (telegram_id, ${keys.join(", ")}) VALUES (?, ${placeholders})`
-      )
-        .bind(telegramId, ...keys.map((k) => fields[k]))
-        .run();
+      ).bind(telegramId, ...keys.map((k) => fields[k])).run();
     }
   }
 
-  function numberedList(items) {
-    return items.map((item, i) => `${i + 1}. ${item}`).join("\n");
+  // ================================
+  // DB helpers - subjects
+  // ================================
+  async function getSubject(command) {
+    const result = await env.DB.prepare("SELECT * FROM subjects WHERE command = ?")
+      .bind(command).first();
+    return result || null;
+  }
+
+  async function getAllSubjects() {
+    const result = await env.DB.prepare("SELECT command, display_name FROM subjects").all();
+    return result.results || [];
   }
 
   // ================================
-  // Registration flow
+  // Daily question / leaderboard logic
+  // ================================
+  async function postDailyQuestion(env, botApi) {
+    const question = await env.DB.prepare(
+      "SELECT * FROM daily_questions ORDER BY id DESC LIMIT 1"
+    ).first();
+    if (!question) return;
+
+    const keyboard = new InlineKeyboard()
+      .text("1️⃣", `answer_${question.id}_1`).text("2️⃣", `answer_${question.id}_2`)
+      .row()
+      .text("3️⃣", `answer_${question.id}_3`).text("4️⃣", `answer_${question.id}_4`);
+
+    await botApi.sendMessage(
+      env.GROUP_CHAT_ID,
+      `❓ Question of the Day\n\n${question.question_text}\n\n` +
+        `1. ${question.option1}\n2. ${question.option2}\n3. ${question.option3}\n4. ${question.option4}`,
+      { reply_markup: keyboard }
+    );
+  }
+
+  async function postAnswerReveal(env, botApi) {
+    const question = await env.DB.prepare(
+      "SELECT * FROM daily_questions ORDER BY id DESC LIMIT 1"
+    ).first();
+    if (!question) return;
+
+    const correctText = [question.option1, question.option2, question.option3, question.option4][
+      question.correct_option - 1
+    ];
+    await botApi.sendMessage(
+      env.GROUP_CHAT_ID,
+      `✅ Answer revealed!\n\nCorrect answer: ${question.correct_option}. ${correctText}`
+    );
+  }
+
+  async function postLeaderboard(env, botApi) {
+    const top = await env.DB.prepare(
+      "SELECT telegram_id, streak FROM users ORDER BY streak DESC LIMIT 10"
+    ).all();
+
+    if (!top.results || top.results.length === 0) {
+      await botApi.sendMessage(env.GROUP_CHAT_ID, "No streaks yet this week!");
+      return;
+    }
+    const lines = top.results.map((u, i) => `${i + 1}. User ${u.telegram_id} — 🔥${u.streak}`);
+    await botApi.sendMessage(env.GROUP_CHAT_ID, "🏆 Weekly Leaderboard\n\n" + lines.join("\n"));
+  }
+
+  // ================================
+  // Button menu screens
+  // ================================
+  function mainMenuScreen() {
+    const keyboard = new InlineKeyboard()
+      .text("📋 My Info", "screen_info")
+      .text("📚 Subjects", "screen_subjects")
+      .row()
+      .text("🏆 Leaderboard", "show_leaderboard")
+      .text("ℹ️ Help", "screen_help");
+    return { text: "🎓 Freshman Hub 2026\nWhat would you like to do?", keyboard };
+  }
+
+  async function infoScreenFor(telegramId) {
+    const user = await getUser(telegramId);
+    const keyboard = new InlineKeyboard();
+
+    if (!user || !user.university) {
+      keyboard.text("📝 Register Now", "start_register").row();
+    }
+    keyboard.text("⬅ Back", "main_menu");
+
+    const text =
+      !user || !user.university
+        ? "You haven't registered yet.\nTap below to get started."
+        : `Your Info:\nUniversity: ${user.university}\nMajor: ${user.major}\nCity: ${user.city}\nSemester: ${user.semester}\nStreak: 🔥${user.streak || 0}`;
+
+    return { text, keyboard };
+  }
+
+  async function subjectsScreen() {
+    const subjects = await getAllSubjects();
+    const keyboard = new InlineKeyboard();
+
+    subjects.forEach((s, i) => {
+      keyboard.text(s.display_name, `subject_${s.command}`);
+      if (i % 2 === 1) keyboard.row();
+    });
+    keyboard.row().text("⬅ Back", "main_menu");
+
+    return { text: "📚 Pick a subject:", keyboard };
+  }
+
+  function helpScreen() {
+    const keyboard = new InlineKeyboard().text("⬅ Back", "main_menu");
+    return {
+      text:
+        "Commands:\n" +
+        "/menu - open the button menu\n" +
+        "/register - start registration\n" +
+        "/myinfo - view your saved info\n" +
+        "/subjects - list all subjects\n" +
+        "/drive - master resource list\n" +
+        "/leaderboard - view current leaderboard",
+      keyboard,
+    };
+  }
+
+  // ================================
+  // Entry commands
   // ================================
   bot.command("start", async (ctx) => {
-    await ctx.reply(
-      "🎓 Welcome to Freshman Hub 2026! 🎓\n\n" +
-        "I'll ask you 4 quick questions to set you up. Type /register when you're ready."
-    );
+    const { text, keyboard } = mainMenuScreen();
+    await ctx.reply(`🎓 Welcome to Freshman Hub 2026! 🎓\n\n${text}`, { reply_markup: keyboard });
+  });
+
+  bot.command("menu", async (ctx) => {
+    const { text, keyboard } = mainMenuScreen();
+    await ctx.reply(text, { reply_markup: keyboard });
   });
 
   bot.command("register", async (ctx) => {
     const telegramId = ctx.from.id.toString();
     await upsertUser(telegramId, { step: "awaiting_university", registered_at: new Date().toISOString() });
+    await ctx.reply("Which university will you be attending?\n\nSelect a number:\n" + numberedList(UNIVERSITIES));
+  });
 
-    await ctx.reply(
-      "Which university will you be attending?\n\nSelect a number:\n" + numberedList(UNIVERSITIES)
+  bot.command("myinfo", async (ctx) => {
+    const telegramId = ctx.from.id.toString();
+    const { text } = await infoScreenFor(telegramId);
+    await ctx.reply(text);
+  });
+
+  bot.command("subjects", async (ctx) => {
+    const subjects = await getAllSubjects();
+    if (subjects.length === 0) { await ctx.reply("No subjects added yet."); return; }
+    await ctx.reply("📚 Available subjects:\n\n" + subjects.map((s) => `/${s.command} - ${s.display_name}`).join("\n"));
+  });
+
+  bot.command("drive", async (ctx) => {
+    const subjects = await getAllSubjects();
+    await ctx.reply("📂 Master resource list:\n\n" + subjects.map((s) => `${s.display_name}: /${s.command}`).join("\n"));
+  });
+
+  bot.command("leaderboard", async (ctx) => {
+    await postLeaderboard(env, bot.api);
+  });
+
+  bot.command("help", async (ctx) => {
+    const { text } = helpScreen();
+    await ctx.reply(text);
+  });
+
+  // ================================
+  // Admin: add daily question
+  // Usage: /addquestion Question text | OptionA | OptionB | OptionC | OptionD | 2
+  // ================================
+  bot.command("addquestion", async (ctx) => {
+    if (!isAdmin(ctx)) { await ctx.reply("This command is for admins only."); return; }
+
+    const parts = ctx.match.split("|").map((p) => p.trim());
+    if (parts.length !== 6) {
+      await ctx.reply("Usage:\n/addquestion Question text | OptionA | OptionB | OptionC | OptionD | correct_number(1-4)");
+      return;
+    }
+    const [questionText, opt1, opt2, opt3, opt4, correctStr] = parts;
+    const correct = parseInt(correctStr);
+    if (![1, 2, 3, 4].includes(correct)) { await ctx.reply("Correct option must be 1-4."); return; }
+
+    await env.DB.prepare(
+      `INSERT INTO daily_questions (question_text, option1, option2, option3, option4, correct_option, post_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(questionText, opt1, opt2, opt3, opt4, correct, new Date().toISOString().split("T")[0]).run();
+
+    await ctx.reply("Question added. It'll go out with the next scheduled post.");
+  });
+
+  bot.command("poststats", async (ctx) => {
+    if (!isAdmin(ctx)) { await ctx.reply("This command is for admins only."); return; }
+    const total = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first();
+    await ctx.reply(`Total registered users: ${total.count}`);
+  });
+
+  // ================================
+  // Button navigation (edits message in place)
+  // ================================
+  bot.callbackQuery("main_menu", async (ctx) => {
+    const { text, keyboard } = mainMenuScreen();
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("screen_info", async (ctx) => {
+    const { text, keyboard } = await infoScreenFor(ctx.from.id.toString());
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("screen_subjects", async (ctx) => {
+    const { text, keyboard } = await subjectsScreen();
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("screen_help", async (ctx) => {
+    const { text, keyboard } = helpScreen();
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery("show_leaderboard", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await postLeaderboard(env, bot.api);
+  });
+
+  bot.callbackQuery("start_register", async (ctx) => {
+    const telegramId = ctx.from.id.toString();
+    await upsertUser(telegramId, { step: "awaiting_university", registered_at: new Date().toISOString() });
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      "Which university will you be attending?\n\nReply with a number:\n" + numberedList(UNIVERSITIES),
+      { reply_markup: new InlineKeyboard().text("⬅ Back", "main_menu") }
     );
   });
 
+  bot.callbackQuery(/^subject_(.+)$/, async (ctx) => {
+    const command = ctx.match[1];
+    const subject = await getSubject(command);
+    await ctx.answerCallbackQuery();
+
+    if (!subject) { await ctx.editMessageText("That subject wasn't found."); return; }
+
+    await ctx.editMessageText(`📖 ${subject.display_name}\n\n${subject.drive_link}`, {
+      reply_markup: new InlineKeyboard().text("⬅ Back", "screen_subjects"),
+    });
+  });
+
+  // ================================
+  // Daily question answer buttons
+  // ================================
+  bot.callbackQuery(/^answer_(\d+)_(\d)$/, async (ctx) => {
+    const [, questionId, selected] = ctx.match;
+    const telegramId = ctx.from.id.toString();
+
+    const question = await env.DB.prepare("SELECT * FROM daily_questions WHERE id = ?")
+      .bind(questionId).first();
+
+    const alreadyAnswered = await env.DB.prepare(
+      "SELECT * FROM answers WHERE telegram_id = ? AND question_id = ?"
+    ).bind(telegramId, questionId).first();
+
+    if (alreadyAnswered) { await ctx.answerCallbackQuery({ text: "You already answered this one." }); return; }
+
+    const isCorrect = parseInt(selected) === question.correct_option;
+
+    await env.DB.prepare(
+      "INSERT INTO answers (telegram_id, question_id, selected_option, is_correct, answered_at) VALUES (?, ?, ?, ?, ?)"
+    ).bind(telegramId, questionId, selected, isCorrect ? 1 : 0, new Date().toISOString()).run();
+
+    if (isCorrect) {
+      await env.DB.prepare("UPDATE users SET streak = streak + 1, last_answered_date = ? WHERE telegram_id = ?")
+        .bind(new Date().toISOString().split("T")[0], telegramId).run();
+    }
+
+    await ctx.answerCallbackQuery({
+      text: isCorrect ? "Correct! 🔥 Streak +1" : "Not quite — see you at 2 PM for the answer.",
+    });
+  });
+
+  // ================================
+  // Subject text commands (/logic, /physics, etc.) - checked before registration flow
+  // ================================
+  bot.on("message:text", async (ctx, next) => {
+    const text = ctx.message.text.trim();
+    if (!text.startsWith("/")) { await next(); return; }
+
+    const command = text.slice(1).toLowerCase();
+    const subject = await getSubject(command);
+
+    if (subject) { await ctx.reply(`📖 ${subject.display_name}\n\n${subject.drive_link}`); return; }
+    await next();
+  });
+
+  // ================================
+  // Registration flow (multi-step) - must be the LAST message:text handler
+  // ================================
   bot.on("message:text", async (ctx) => {
     const telegramId = ctx.from.id.toString();
     const text = ctx.message.text.trim();
     const user = await getUser(telegramId);
 
     if (!user || !user.step) {
-      await ctx.reply("Type /register to get started, or /help for commands.");
+      await ctx.reply("Type /register to get started, or /menu for options.");
       return;
     }
 
-    // --- Step: university ---
     if (user.step === "awaiting_university") {
       const index = parseInt(text) - 1;
-      const value =
-        index >= 0 && index < UNIVERSITIES.length - 1
-          ? UNIVERSITIES[index]
-          : text; // "Other" or free text fallback
-
+      const value = index >= 0 && index < UNIVERSITIES.length - 1 ? UNIVERSITIES[index] : text;
       await upsertUser(telegramId, { university: value, step: "awaiting_major" });
-      await ctx.reply("📚 What is your intended major or field of study?\n\nSelect a number:\n" + numberedList(MAJORS));
+      await ctx.reply("📚 What is your intended major?\n\nSelect a number:\n" + numberedList(MAJORS));
       return;
     }
 
-    // --- Step: major ---
     if (user.step === "awaiting_major") {
       const index = parseInt(text) - 1;
       const value = index >= 0 && index < MAJORS.length - 1 ? MAJORS[index] : text;
-
       await upsertUser(telegramId, { major: value, step: "awaiting_city" });
       await ctx.reply("📍 Which city are you currently in?\n\nSelect a number:\n" + numberedList(CITIES));
       return;
     }
 
-    // --- Step: city ---
     if (user.step === "awaiting_city") {
       const index = parseInt(text) - 1;
       const value = index >= 0 && index < CITIES.length - 1 ? CITIES[index] : text;
-
       await upsertUser(telegramId, { city: value, step: "awaiting_semester" });
       await ctx.reply("📅 Which semester are you starting?\n\nSelect a number:\n" + numberedList(SEMESTERS));
       return;
     }
 
-    // --- Step: semester (final step) ---
     if (user.step === "awaiting_semester") {
       const index = parseInt(text) - 1;
       const value = index >= 0 && index < SEMESTERS.length ? SEMESTERS[index] : text;
-
       await upsertUser(telegramId, { semester: value, step: null });
 
       const finalUser = await getUser(telegramId);
       await ctx.reply(
         "✅ Registration Complete!\n\n" +
-          `University: ${finalUser.university}\n` +
-          `Major: ${finalUser.major}\n` +
-          `City: ${finalUser.city}\n` +
-          `Semester: ${finalUser.semester}\n\n` +
-          "You'll get daily questions starting tomorrow at 8:00 AM. Welcome to Freshman Hub 2026! 🚀"
+          `University: ${finalUser.university}\nMajor: ${finalUser.major}\n` +
+          `City: ${finalUser.city}\nSemester: ${finalUser.semester}\n\n` +
+          "You'll get daily questions starting tomorrow at 8:00 AM. Welcome! 🚀"
       );
       return;
     }
 
-    // Fallback if step is something unexpected
     await ctx.reply("Something went off track — type /register to start over.");
-  });
-
-  bot.command("myinfo", async (ctx) => {
-    const telegramId = ctx.from.id.toString();
-    const user = await getUser(telegramId);
-
-    if (!user || !user.university) {
-      await ctx.reply("You haven't registered yet. Type /register to get started.");
-      return;
-    }
-
-    await ctx.reply(
-      `University: ${user.university}\nMajor: ${user.major}\nCity: ${user.city}\nSemester: ${user.semester}\nStreak: ${user.streak || 0}`
-    );
-  });
-
-  bot.command("help", async (ctx) => {
-    await ctx.reply("/register - start registration\n/myinfo - view your saved info");
   });
 
   return bot;
@@ -240,15 +414,46 @@ export default {
     if (request.method === "GET") {
       return new Response("Freshman Hub bot is running.", { status: 200 });
     }
-
     const bot = createBot(env);
     const handleUpdate = webhookCallback(bot, "cloudflare-mod");
-
     try {
       return await handleUpdate(request);
     } catch (err) {
       console.error("Error handling update:", err);
       return new Response("Error", { status: 500 });
+    }
+  },
+
+  async scheduled(event, env, ctx) {
+    const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+    const hour = new Date(event.scheduledTime).getUTCHours();
+    const day = new Date(event.scheduledTime).getUTCDay(); // 0 = Sunday
+
+    if (hour === 5) {
+      const question = await env.DB.prepare("SELECT * FROM daily_questions ORDER BY id DESC LIMIT 1").first();
+      if (question) {
+        const keyboard = new InlineKeyboard()
+          .text("1️⃣", `answer_${question.id}_1`).text("2️⃣", `answer_${question.id}_2`)
+          .row()
+          .text("3️⃣", `answer_${question.id}_3`).text("4️⃣", `answer_${question.id}_4`);
+        await bot.api.sendMessage(
+          env.GROUP_CHAT_ID,
+          `❓ Question of the Day\n\n${question.question_text}\n\n1. ${question.option1}\n2. ${question.option2}\n3. ${question.option3}\n4. ${question.option4}`,
+          { reply_markup: keyboard }
+        );
+      }
+    } else if (hour === 11) {
+      const question = await env.DB.prepare("SELECT * FROM daily_questions ORDER BY id DESC LIMIT 1").first();
+      if (question) {
+        const correctText = [question.option1, question.option2, question.option3, question.option4][question.correct_option - 1];
+        await bot.api.sendMessage(env.GROUP_CHAT_ID, `✅ Answer revealed!\n\nCorrect answer: ${question.correct_option}. ${correctText}`);
+      }
+    } else if (hour === 15 && day === 0) {
+      const top = await env.DB.prepare("SELECT telegram_id, streak FROM users ORDER BY streak DESC LIMIT 10").all();
+      if (top.results && top.results.length > 0) {
+        const lines = top.results.map((u, i) => `${i + 1}. User ${u.telegram_id} — 🔥${u.streak}`);
+        await bot.api.sendMessage(env.GROUP_CHAT_ID, "🏆 Weekly Leaderboard\n\n" + lines.join("\n"));
+      }
     }
   },
 };
