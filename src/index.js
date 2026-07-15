@@ -253,6 +253,23 @@ function createBot(env) {
 
   // ================================
   // Button navigation (edits message in place)
+  bot.command("testquestion", async (ctx) => {
+  if (!isAdmin(ctx)) { await ctx.reply("Admins only."); return; }
+  const question = await env.DB.prepare("SELECT * FROM daily_questions ORDER BY id DESC LIMIT 1").first();
+  if (!question) { await ctx.reply("No questions in the database yet."); return; }
+
+  const keyboard = new InlineKeyboard()
+    .text("1️⃣", `answer_${question.id}_1`).text("2️⃣", `answer_${question.id}_2`)
+    .row()
+    .text("3️⃣", `answer_${question.id}_3`).text("4️⃣", `answer_${question.id}_4`);
+
+  await bot.api.sendMessage(
+    env.GROUP_CHAT_ID,
+    `❓ Question of the Day\n\n${question.question_text}\n\n1. ${question.option1}\n2. ${question.option2}\n3. ${question.option3}\n4. ${question.option4}`,
+    { reply_markup: keyboard }
+  );
+  await ctx.reply("Test question sent to the group.");
+});
   // ================================
   bot.callbackQuery("main_menu", async (ctx) => {
     const { text, keyboard } = mainMenuScreen();
