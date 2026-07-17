@@ -225,26 +225,30 @@ function createBot(env) {
   // Admin: add daily question
   // Usage: /addquestion Question text | OptionA | OptionB | OptionC | OptionD | 2
   // ================================
+  // Usage: /addquestion biology | Question text | OptionA | OptionB | OptionC | OptionD | 2
   bot.command("addquestion", async (ctx) => {
-    if (!isAdmin(ctx)) { await ctx.reply("This command is for admins only."); return; }
+    if (!isAdmin(ctx)) { await ctx.reply("Admins only."); return; }
 
     const parts = ctx.match.split("|").map((p) => p.trim());
-    if (parts.length !== 6) {
-      await ctx.reply("Usage:\n/addquestion Question text | OptionA | OptionB | OptionC | OptionD | correct_number(1-4)");
+    if (parts.length !== 7) {
+      await ctx.reply(
+        "Usage:\n/addquestion subject | Question text | OptionA | OptionB | OptionC | OptionD | correct_number(1-4)\n\n" +
+        "Example:\n/addquestion biology | What is the powerhouse of the cell? | Nucleus | Mitochondria | Ribosome | Golgi | 2"
+      );
       return;
     }
-    const [questionText, opt1, opt2, opt3, opt4, correctStr] = parts;
+
+    const [subject, questionText, opt1, opt2, opt3, opt4, correctStr] = parts;
     const correct = parseInt(correctStr);
     if (![1, 2, 3, 4].includes(correct)) { await ctx.reply("Correct option must be 1-4."); return; }
 
     await env.DB.prepare(
-      `INSERT INTO daily_questions (question_text, option1, option2, option3, option4, correct_option, post_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).bind(questionText, opt1, opt2, opt3, opt4, correct, new Date().toISOString().split("T")[0]).run();
+      `INSERT INTO daily_questions (subject, question_text, option1, option2, option3, option4, correct_option, post_date, is_posted)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`
+    ).bind(subject.toLowerCase(), questionText, opt1, opt2, opt3, opt4, correct, new Date().toISOString().split("T")[0]).run();
 
-    await ctx.reply("Question added. It'll go out with the next scheduled post.");
+    await ctx.reply(`Question added under subject "${subject.toLowerCase()}".`);
   });
-
   bot.command("poststats", async (ctx) => {
     if (!isAdmin(ctx)) { await ctx.reply("This command is for admins only."); return; }
     const total = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first();
@@ -254,22 +258,72 @@ function createBot(env) {
   // ================================
   // Button navigation (edits message in place)
   bot.command("testquestion", async (ctx) => {
-  if (!isAdmin(ctx)) { await ctx.reply("Admins only."); return; }
-  const question = await env.DB.prepare("SELECT * FROM daily_questions ORDER BY id DESC LIMIT 1").first();
-  if (!question) { await ctx.reply("No questions in the database yet."); return; }
+    if (!isAdmin(ctx)) { await ctx.reply("Admins only."); return; }
 
-  const keyboard = new InlineKeyboard()
-    .text("1️⃣", `answer_${question.id}_1`).text("2️⃣", `answer_${question.id}_2`)
-    .row()
-    .text("3️⃣", `answer_${question.id}_3`).text("4️⃣", `answer_${question.id}_4`);
+    const today = new Date().toISOString().split("T")[0];
+    const plan = await env.DB.prepare("SELECT * FROM daily_plan WHERE plan_date = ?").bind(today).first();
 
-  await bot.api.sendMessage(
-    env.GROUP_CHAT_ID,
-    `❓ Question of the Day\n\n${question.question_text}\n\n1. ${question.option1}\n2. ${question.option2}\n3. ${question.option3}\n4. ${question.option4}`,
-    { reply_markup: keyboard }
-  );
-  await ctx.reply("Test question sent to the group.");
-});
+    if (!plan) { await ctx.reply("No plan set for today. Use /setplan <subject> <count> first."); return; }
+
+    const questions = await env.DB.prepare(
+      "SELECT * FROM daily_questions WHERE subject = ? AND is_posted = 0 ORDER BY id ASC LIMIT ?"
+    ).bind(plan.subject, plan.question_count).all();
+
+    if (!questions.results || questions.results.length === 0) {
+      await ctx.reply(`No unposted questions for "${plan.subject}".`);
+      return;
+    }
+
+    for (const question of questions.results) {
+      const keyboard = new InlineKeyboard()
+        .text("1️⃣", `answer_${question.id}_1`).text("2️⃣", `answer_${question.id}_2`)
+        .row()
+        .text("3️⃣", `answer_${question.id}_3`).text("4️⃣", `answer_${question.id}_4`);
+
+      await bot.api.sendMessage(
+        env.GROUP_CHAT_ID,
+        `❓ ${plan.subject.toUpperCase()} — Question of the Day\n\n${question.question_text}\n\n` +
+          `1. ${question.option1}\n2. ${question.option2}\n3. ${question.option3}\n4. ${question.option4}`,
+        { reply_markup: keyboard }
+      );
+
+      await env.DB.prepare("UPDATE daily_questions SET is_posted = 1, posted_at = ? WHERE id = ?")
+        .bind(new Date().toISOString(), question.id).run();
+    }
+
+    await ctx.reply(`Sent ${questions.results.length} question(s) to the group.`);
+  });
+  // Usage: /setplan biology 3
+  bot.command("setplan", async (ctx) => {
+    if (!isAdmin(ctx)) { await ctx.reply("Admins only."); return; }
+
+    const parts = ctx.match.trim().split(" ");
+    if (parts.length !== 2) {
+      await ctx.reply("Usage: /setplan <subject> <count>\nExample: /setplan biology 3");
+      return;
+    }
+
+    const [subject, countStr] = parts;
+    const count = parseInt(countStr);
+    if (isNaN(count) || count < 1) { await ctx.reply("Count must be a positive number."); return; }
+
+    const today = new Date().toISOString().split("T")[0];
+
+    await env.DB.prepare(
+      `INSERT INTO daily_plan (plan_date, subject, question_count) VALUES (?, ?, ?)
+       ON CONFLICT(plan_date) DO UPDATE SET subject = excluded.subject, question_count = excluded.question_count`
+    ).bind(today, subject.toLowerCase(), count).run();
+
+    // Check how many unposted questions actually exist for this subject
+    const available = await env.DB.prepare(
+      "SELECT COUNT(*) as count FROM daily_questions WHERE subject = ? AND is_posted = 0"
+    ).bind(subject.toLowerCase()).first();
+
+    await ctx.reply(
+      `Plan set: ${count} question(s) on "${subject.toLowerCase()}" today.\n` +
+      `Available unposted questions in this subject: ${available.count}`
+    );
+  });
   // ================================
   bot.callbackQuery("main_menu", async (ctx) => {
     const { text, keyboard } = mainMenuScreen();
@@ -447,17 +501,36 @@ export default {
     const day = new Date(event.scheduledTime).getUTCDay(); // 0 = Sunday
 
     if (hour === 5) {
-      const question = await env.DB.prepare("SELECT * FROM daily_questions ORDER BY id DESC LIMIT 1").first();
-      if (question) {
-        const keyboard = new InlineKeyboard()
-          .text("1️⃣", `answer_${question.id}_1`).text("2️⃣", `answer_${question.id}_2`)
-          .row()
-          .text("3️⃣", `answer_${question.id}_3`).text("4️⃣", `answer_${question.id}_4`);
-        await bot.api.sendMessage(
-          env.GROUP_CHAT_ID,
-          `❓ Question of the Day\n\n${question.question_text}\n\n1. ${question.option1}\n2. ${question.option2}\n3. ${question.option3}\n4. ${question.option4}`,
-          { reply_markup: keyboard }
-        );
+      const today = new Date().toISOString().split("T")[0];
+      const plan = await env.DB.prepare("SELECT * FROM daily_plan WHERE plan_date = ?").bind(today).first();
+
+      if (!plan) {
+        console.log("No plan set for today — skipping daily post.");
+      } else {
+        const questions = await env.DB.prepare(
+          "SELECT * FROM daily_questions WHERE subject = ? AND is_posted = 0 ORDER BY id ASC LIMIT ?"
+        ).bind(plan.subject, plan.question_count).all();
+
+        if (!questions.results || questions.results.length === 0) {
+          await bot.api.sendMessage(env.GROUP_CHAT_ID, `No unposted questions left for subject "${plan.subject}" today.`);
+        } else {
+          for (const question of questions.results) {
+            const keyboard = new InlineKeyboard()
+              .text("1️⃣", `answer_${question.id}_1`).text("2️⃣", `answer_${question.id}_2`)
+              .row()
+              .text("3️⃣", `answer_${question.id}_3`).text("4️⃣", `answer_${question.id}_4`);
+
+            await bot.api.sendMessage(
+              env.GROUP_CHAT_ID,
+              `❓ ${plan.subject.toUpperCase()} — Question of the Day\n\n${question.question_text}\n\n` +
+                `1. ${question.option1}\n2. ${question.option2}\n3. ${question.option3}\n4. ${question.option4}`,
+              { reply_markup: keyboard }
+            );
+
+            await env.DB.prepare("UPDATE daily_questions SET is_posted = 1, posted_at = ? WHERE id = ?")
+              .bind(new Date().toISOString(), question.id).run();
+          }
+        }
       }
     } else if (hour === 11) {
       const question = await env.DB.prepare("SELECT * FROM daily_questions ORDER BY id DESC LIMIT 1").first();
