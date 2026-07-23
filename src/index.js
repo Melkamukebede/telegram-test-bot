@@ -54,8 +54,15 @@ function createBot(env) {
     }
   }
 
-  // ================================
-  // DB helpers - subjects
+  // ===nnnnnnnnnnnnnnnnnnnnnnn
+  function isPrivate(ctx) {
+    return ctx.chat.type === "private";
+  }
+
+  function isGroup(ctx) {
+    return ctx.chat.type === "group" || ctx.chat.type === "supergroup";
+  }
+  // nnnnnnnnnnnnnnn
   // ================================
   async function getSubject(command) {
     const result = await env.DB.prepare("SELECT * FROM subjects WHERE command = ?")
@@ -180,34 +187,40 @@ function createBot(env) {
   // Entry commands
   // ================================
   bot.command("start", async (ctx) => {
+    if (!isPrivate(ctx)) return;
     const { text, keyboard } = mainMenuScreen();
     await ctx.reply(`🎓 Welcome to Freshman Hub 2026! 🎓\n\n${text}`, { reply_markup: keyboard });
   });
 
   bot.command("menu", async (ctx) => {
+    if (!isPrivate(ctx)) return;
     const { text, keyboard } = mainMenuScreen();
     await ctx.reply(text, { reply_markup: keyboard });
   });
 
   bot.command("register", async (ctx) => {
+    if (!isPrivate(ctx)) return;
     const telegramId = ctx.from.id.toString();
     await upsertUser(telegramId, { step: "awaiting_university", registered_at: new Date().toISOString() });
     await ctx.reply("Which university will you be attending?\n\nSelect a number:\n" + numberedList(UNIVERSITIES));
   });
 
   bot.command("myinfo", async (ctx) => {
+    if (!isPrivate(ctx)) return;
     const telegramId = ctx.from.id.toString();
     const { text } = await infoScreenFor(telegramId);
     await ctx.reply(text);
   });
 
   bot.command("subjects", async (ctx) => {
+    if (!isPrivate(ctx)) return;
     const subjects = await getAllSubjects();
     if (subjects.length === 0) { await ctx.reply("No subjects added yet."); return; }
     await ctx.reply("📚 Available subjects:\n\n" + subjects.map((s) => `/${s.command} - ${s.display_name}`).join("\n"));
   });
 
   bot.command("drive", async (ctx) => {
+    if (!isPrivate(ctx)) return;
     const subjects = await getAllSubjects();
     await ctx.reply("📂 Master resource list:\n\n" + subjects.map((s) => `${s.display_name}: /${s.command}`).join("\n"));
   });
@@ -217,16 +230,26 @@ function createBot(env) {
   });
 
   bot.command("help", async (ctx) => {
+    if (isGroup(ctx)) { // ADD THIS — different reply for group
+      await ctx.reply(
+        "DM me @YourBotUsername to:\n" +
+        "• Register for Freshman Hub\n" +
+        "• Access subject resources\n" +
+        "• View your streak and info"
+      );
+      return;
+    }
+    // private chat gets the full list
     const { text } = helpScreen();
     await ctx.reply(text);
   });
-
   // ================================
   // Admin: add daily question
   // Usage: /addquestion Question text | OptionA | OptionB | OptionC | OptionD | 2
   // ================================
   // Usage: /addquestion biology | Question text | OptionA | OptionB | OptionC | OptionD | 2
   bot.command("addquestion", async (ctx) => {
+     if (!isPrivate(ctx)) return;
     if (!isAdmin(ctx)) { await ctx.reply("Admins only."); return; }
 
     const parts = ctx.match.split("|").map((p) => p.trim());
@@ -250,6 +273,7 @@ function createBot(env) {
     await ctx.reply(`Question added under subject "${subject.toLowerCase()}".`);
   });
   bot.command("poststats", async (ctx) => {
+     if (!isPrivate(ctx)) return;
     if (!isAdmin(ctx)) { await ctx.reply("This command is for admins only."); return; }
     const total = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first();
     await ctx.reply(`Total registered users: ${total.count}`);
@@ -258,6 +282,7 @@ function createBot(env) {
   // ================================
   // Button navigation (edits message in place)
   bot.command("testquestion", async (ctx) => {
+     if (!isPrivate(ctx)) return;
     if (!isAdmin(ctx)) { await ctx.reply("Admins only."); return; }
 
     const today = new Date().toISOString().split("T")[0];
@@ -295,6 +320,7 @@ function createBot(env) {
   });
   // Usage: /setplan biology 3
   bot.command("setplan", async (ctx) => {
+     if (!isPrivate(ctx)) return;
     if (!isAdmin(ctx)) { await ctx.reply("Admins only."); return; }
 
     const parts = ctx.match.trim().split(" ");
@@ -412,6 +438,7 @@ function createBot(env) {
   // Subject text commands (/logic, /physics, etc.) - checked before registration flow
   // ================================
   bot.on("message:text", async (ctx, next) => {
+     if (!isPrivate(ctx)) { await next(); return; } 
     const text = ctx.message.text.trim();
     if (!text.startsWith("/")) { await next(); return; }
 
@@ -426,6 +453,7 @@ function createBot(env) {
   // Registration flow (multi-step) - must be the LAST message:text handler
   // ================================
   bot.on("message:text", async (ctx) => {
+     if (!isPrivate(ctx)) return;
     const telegramId = ctx.from.id.toString();
     const text = ctx.message.text.trim();
     const user = await getUser(telegramId);
