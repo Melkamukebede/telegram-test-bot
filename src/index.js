@@ -561,11 +561,39 @@ export default {
           }
         }
       }
-    } else if (hour === 11) {
-      const question = await env.DB.prepare("SELECT * FROM daily_questions ORDER BY id DESC LIMIT 1").first();
-      if (question) {
-        const correctText = [question.option1, question.option2, question.option3, question.option4][question.correct_option - 1];
-        await bot.api.sendMessage(env.GROUP_CHAT_ID, `✅ Answer revealed!\n\nCorrect answer: ${question.correct_option}. ${correctText}`);
+    } } else if (hour === 11) {
+      const today = new Date().toISOString().split("T")[0];
+
+      // Find all questions posted today that haven't been revealed yet
+      const questions = await env.DB.prepare(
+        `SELECT * FROM daily_questions
+         WHERE is_posted = 1
+         AND is_revealed = 0
+         AND date(posted_at) = ?
+         ORDER BY id ASC`
+      ).bind(today).all();
+
+      if (!questions.results || questions.results.length === 0) {
+        console.log("No unrevealed questions for today.");
+      } else {
+        for (const question of questions.results) {
+          const correctText = [
+            question.option1, question.option2,
+            question.option3, question.option4
+          ][question.correct_option - 1];
+
+          await bot.api.sendMessage(
+            env.GROUP_CHAT_ID,
+            `✅ Answer Revealed!\n\n` +
+            `Question: ${question.question_text}\n\n` +
+            `Correct Answer: ${question.correct_option}. ${correctText}`
+          );
+
+          // Mark this question as revealed so it never repeats
+          await env.DB.prepare(
+            "UPDATE daily_questions SET is_revealed = 1 WHERE id = ?"
+          ).bind(question.id).run();
+        }
       }
     } else if (hour === 15 && day === 0) {
       const top = await env.DB.prepare("SELECT telegram_id, streak FROM users ORDER BY streak DESC LIMIT 10").all();
