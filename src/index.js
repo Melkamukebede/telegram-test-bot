@@ -404,6 +404,44 @@ function createBot(env) {
   });
 
   // ================================
+  bot.command("testreveal", async (ctx) => {
+    if (!isPrivate(ctx)) return;
+    if (!isAdmin(ctx)) { await ctx.reply("Admins only."); return; }
+
+    const today = new Date().toISOString().split("T")[0];
+    const questions = await env.DB.prepare(
+      `SELECT * FROM daily_questions
+       WHERE is_posted = 1
+       AND is_revealed = 0
+       AND date(posted_at) = ?
+       ORDER BY id ASC`
+    ).bind(today).all();
+
+    if (!questions.results || questions.results.length === 0) {
+      await ctx.reply("No unrevealed questions for today.");
+      return;
+    }
+
+    for (const question of questions.results) {
+      const correctText = [
+        question.option1, question.option2,
+        question.option3, question.option4
+      ][question.correct_option - 1];
+
+      await bot.api.sendMessage(
+        env.GROUP_CHAT_ID,
+        `✅ Answer Revealed!\n\n` +
+        `Question: ${question.question_text}\n\n` +
+        `Correct Answer: ${question.correct_option}. ${correctText}`
+      );
+
+      await env.DB.prepare(
+        "UPDATE daily_questions SET is_revealed = 1 WHERE id = ?"
+      ).bind(question.id).run();
+    }
+
+    await ctx.reply(`Revealed ${questions.results.length} answer(s) to the group.`);
+  });
   // Daily question answer buttons
   // ================================
   bot.callbackQuery(/^answer_(\d+)_(\d)$/, async (ctx) => {
