@@ -232,7 +232,7 @@ function createBot(env) {
   bot.command("help", async (ctx) => {
     if (isGroup(ctx)) { // ADD THIS — different reply for group
       await ctx.reply(
-        "DM me @YourBotUsername to:\n" +
+        "DM me @Frm2026_bot to:\n" +
         "• Register for Freshman Hub\n" +
         "• Access subject resources\n" +
         "• View your streak and info"
@@ -320,6 +320,7 @@ function createBot(env) {
   });
   // Usage: /setplan biology 3
   bot.command("setplan", async (ctx) => {
+     if (!isPrivate(ctx)) return;
      if (!isPrivate(ctx)) return;
     if (!isAdmin(ctx)) { await ctx.reply("Admins only."); return; }
 
