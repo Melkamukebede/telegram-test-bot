@@ -599,7 +599,7 @@ export default {
           }
         }
       }
-    } } else if (hour === 11) {
+    }  else if (hour === 11) {
       const today = new Date().toISOString().split("T")[0];
 
       // Find all questions posted today that haven't been revealed yet
