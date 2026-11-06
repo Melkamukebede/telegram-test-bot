@@ -27,8 +27,9 @@ export function registerCallbacks(bot, env) {
     await show(ctx, text, keyboard);
   });
 
-  bot.callbackQuery("screen_help", async (ctx) => {
-    const { text, keyboard } = helpScreen();
+    bot.callbackQuery("screen_help", async (ctx) => {
+    const role = isPrivate(ctx) ? await roleOf(ctx, env) : "student";
+    const { text, keyboard } = helpScreen(role);
     await ctx.answerCallbackQuery();
     await show(ctx, text, keyboard);
   });
