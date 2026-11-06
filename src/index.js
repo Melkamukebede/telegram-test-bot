@@ -1,6 +1,6 @@
 import { Bot, webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
-import { postDailyQuestions, postReveals, postLeaderboard } from "./services/scheduler.js";
+import { postDailyQuestions, postReveals, postLeaderboard, postPromo } from "./services/scheduler.js";
 import { renderGuidePage } from "./web/guidePage.js";
 
 export default {
@@ -9,7 +9,6 @@ export default {
 
     if (request.method === "GET") {
       if (url.pathname === "/guide") {
-        // If GUIDE_KEY is set, the page needs ?key=VALUE
         if (env.GUIDE_KEY && url.searchParams.get("key") !== env.GUIDE_KEY) {
           return new Response("Not found", { status: 404 });
         }
@@ -17,18 +16,18 @@ export default {
           headers: { "content-type": "text/html; charset=utf-8" },
         });
       }
-      return new Response("Freshman Hub bot is running.", { status: 200 });
+      return new Response("Sinahard bot is running.", { status: 200 });
     }
 
     if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
     const bot = createBot(env, url.origin);
-    // If WEBHOOK_SECRET is set, requests without Telegram's secret header are rejected
     const handle = webhookCallback(bot, "cloudflare-mod", { secretToken: env.WEBHOOK_SECRET });
     return handle(request);
   },
 
-  // Cron: 05:00 UTC questions, 11:00 UTC reveals, Sunday 15:00 UTC leaderboard
+  // The hour (UTC) decides which job runs:
+  // 05 questions, 11 answers, 13 promo (Mon/Wed/Fri), 15 leaderboard (Sunday)
   async scheduled(event, env, ctx) {
     const api = new Bot(env.TELEGRAM_BOT_TOKEN).api;
     const when = new Date(event.scheduledTime);
@@ -49,6 +48,8 @@ export default {
         }
       } else if (hour === 11) {
         await postReveals(env, api);
+      } else if (hour === 13) {
+        await postPromo(env, api);
       } else if (hour === 15 && day === 0) {
         await postLeaderboard(env, api);
       }
