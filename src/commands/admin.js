@@ -1,6 +1,6 @@
 import { requireAdmin, isOwner } from "../auth.js";
 import { todayAddis } from "../config.js";
-import { postDailyQuestions, postReveals } from "../services/scheduler.js";
+import { postDailyQuestions, postReveals, postPromo } from "../services/scheduler.js";
 
 // Accepts 1-4 or A-D
 function parseCorrect(s) {
