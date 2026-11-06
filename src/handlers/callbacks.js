@@ -1,3 +1,4 @@
+import { isPrivate, roleOf } from "../auth.js";
 import { InlineKeyboard } from "grammy";
 import { getUser, startRegistration } from "../db.js";
 import { questionText, todayAddis } from "../config.js";
