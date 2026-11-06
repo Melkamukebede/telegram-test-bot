@@ -26,16 +26,22 @@ export async function infoScreen(env, telegramId) {
   return { text, keyboard };
 }
 
-export function helpScreen() {
+export function helpScreen(role = "student") {
   const keyboard = new InlineKeyboard().text("⬅ Back", "main_menu");
-  return {
-    text:
-      "Commands:\n" +
-      "/menu - open the button menu\n" +
-      "/register - start registration\n" +
-      "/myinfo - view your saved info\n" +
-      "/app - open the Sinahard app\n" +
-      "/leaderboard - show the leaderboard in the channel",
-    keyboard,
-  };
+
+  let text =
+    "Commands:\n" +
+    "/menu - open the button menu\n" +
+    "/register - start registration\n" +
+    "/myinfo - view your saved info\n" +
+    "/app - open the Sinahard app\n" +
+    "/leaderboard - show the leaderboard in the channel";
+
+  if (role === "admin" || role === "owner") {
+    text += "\n\n🛠 Admin commands:\n" + ADMIN_HELP_LINES.join("\n");
+  }
+  if (role === "owner") {
+    text += "\n\n👑 Owner only:\n" + OWNER_HELP_LINES.join("\n");
+  }
+  return { text, keyboard };
 }
