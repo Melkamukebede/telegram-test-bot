@@ -86,14 +86,14 @@ export const SETUP_SECTIONS = [
     title: "Put the code on GitHub and connect Cloudflare",
     steps: [
       "Create a GitHub repository with every project file: src/ folder, wrangler.toml, package.json, schema.sql.",
-      "Cloudflare dashboard > Workers & Pages > Create > connect the repository. Build command: leave empty. Deploy command: npx wrangler deploy.",
+      " Build command: leave empty. Deploy command: npx wrangler deploy.",
       "Open the Worker URL in a browser. It should say: Freshman Hub bot is running.",
     ],
   },
   {
     title: "Create the database (D1)",
     steps: [
-      "Dashboard > D1 > Create database named freshman_hub_db.",
+      "",
       "Open its Console and run the contents of schema.sql.",
       "Bind it to the Worker: variable name DB. Add the same binding to wrangler.toml with your database_id, so Git deploys keep it.",
       "Add your subjects: INSERT INTO subjects (command, display_name, drive_link) VALUES ('logic', 'Logic', 'https://drive.google.com/...');",
@@ -102,7 +102,7 @@ export const SETUP_SECTIONS = [
   {
     title: "Add secrets",
     steps: [
-      "Worker > Settings > Variables and Secrets. Add each one as an encrypted secret.",
+      " Add each one as an encrypted secret.",
       "TELEGRAM_BOT_TOKEN: the token from BotFather.",
       "ADMIN_ID: your numeric Telegram user ID (message @userinfobot). This is the owner.",
       "GROUP_CHAT_ID: the negative number of your group (see Connect the group).",
