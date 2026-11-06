@@ -1,7 +1,7 @@
 import { InlineKeyboard } from "grammy";
-import { getUser, getSubject, startRegistration } from "../db.js";
+import { getUser, startRegistration } from "../db.js";
 import { questionText, todayAddis } from "../config.js";
-import { mainMenuScreen, infoScreen, subjectsScreen, helpScreen } from "../screens.js";
+import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
 
 // Edit the message in place; ignore Telegram's "message is not modified" error
@@ -26,12 +26,6 @@ export function registerCallbacks(bot, env) {
     await show(ctx, text, keyboard);
   });
 
-  bot.callbackQuery("screen_subjects", async (ctx) => {
-    const { text, keyboard } = await subjectsScreen(env);
-    await ctx.answerCallbackQuery();
-    await show(ctx, text, keyboard);
-  });
-
   bot.callbackQuery("screen_help", async (ctx) => {
     const { text, keyboard } = helpScreen();
     await ctx.answerCallbackQuery();
@@ -39,7 +33,7 @@ export function registerCallbacks(bot, env) {
   });
 
   bot.callbackQuery("show_leaderboard", async (ctx) => {
-    await ctx.answerCallbackQuery({ text: "Leaderboard posted to the group." });
+    await ctx.answerCallbackQuery({ text: "Leaderboard posted to the channel." });
     await postLeaderboard(env, bot.api);
   });
 
@@ -47,17 +41,6 @@ export function registerCallbacks(bot, env) {
     await startRegistration(env, String(ctx.from.id));
     await ctx.answerCallbackQuery();
     await show(ctx, questionText(0), new InlineKeyboard().text("⬅ Back", "main_menu"));
-  });
-
-  bot.callbackQuery(/^subject_(.+)$/, async (ctx) => {
-    const subject = await getSubject(env, ctx.match[1]);
-    await ctx.answerCallbackQuery();
-    if (!subject) { await show(ctx, "That subject wasn't found.", new InlineKeyboard().text("⬅ Back", "screen_subjects")); return; }
-    await show(
-      ctx,
-      `📖 ${subject.display_name}\n\n${subject.drive_link}`,
-      new InlineKeyboard().text("⬅ Back", "screen_subjects")
-    );
   });
 
   // A / B / C / D buttons under a posted question
@@ -80,7 +63,6 @@ export function registerCallbacks(bot, env) {
 
     const isCorrect = selected === q.correct_option;
 
-    // The (telegram_id, question_id) key makes a second tap a no-op, even if two taps race
     const ins = await env.DB.prepare(
       "INSERT OR IGNORE INTO answers (telegram_id, question_id, selected_option, is_correct, answered_at) VALUES (?, ?, ?, ?, ?)"
     ).bind(telegramId, questionId, selected, isCorrect ? 1 : 0, new Date().toISOString()).run();
