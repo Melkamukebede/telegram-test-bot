@@ -1,3 +1,4 @@
+import { ADMIN_HELP_LINES, OWNER_HELP_LINES } from "./commandLists.js";
 import { InlineKeyboard } from "grammy";
 import { getUser } from "./db.js";
 import { BRAND, SINAHARD_URL } from "./config.js";
