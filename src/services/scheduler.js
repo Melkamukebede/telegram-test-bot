@@ -1,5 +1,5 @@
 import { InlineKeyboard } from "grammy";
-import { todayAddis } from "../config.js";
+import { todayAddis, PROMO_TEXT, SINAHARD_URL } from "../config.js";
 import { answerKeyboard, formatQuestionPost, formatReveal } from "./formatters.js";
 
 // Posts whatever is still owed for today's plan. The plan's count is the
