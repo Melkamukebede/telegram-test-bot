@@ -1,14 +1,15 @@
 import { InlineKeyboard } from "grammy";
-import { getUser, getAllSubjects } from "./db.js";
+import { getUser } from "./db.js";
+import { BRAND, SINAHARD_URL } from "./config.js";
 
 export function mainMenuScreen() {
   const keyboard = new InlineKeyboard()
     .text("📋 My Info", "screen_info")
-    .text("📚 Subjects", "screen_subjects")
-    .row()
     .text("🏆 Leaderboard", "show_leaderboard")
-    .text("ℹ️ Help", "screen_help");
-  return { text: "🎓 Freshman Hub 2026\nWhat would you like to do?", keyboard };
+    .row()
+    .text("• Help", "screen_help")
+    .url("• Sinahard App", SINAHARD_URL);
+  return { text: `🎓 ${BRAND}\nWhat would you like to do?`, keyboard };
 }
 
 export async function infoScreen(env, telegramId) {
@@ -24,20 +25,6 @@ export async function infoScreen(env, telegramId) {
   return { text, keyboard };
 }
 
-export async function subjectsScreen(env) {
-  const subjects = await getAllSubjects(env);
-  const keyboard = new InlineKeyboard();
-  subjects.forEach((s, i) => {
-    keyboard.text(s.display_name, `subject_${s.command}`);
-    if (i % 2 === 1) keyboard.row();
-  });
-  keyboard.row().text("⬅ Back", "main_menu");
-  return {
-    text: subjects.length ? "📚 Pick a subject:" : "No subjects have been added yet.",
-    keyboard,
-  };
-}
-
 export function helpScreen() {
   const keyboard = new InlineKeyboard().text("⬅ Back", "main_menu");
   return {
@@ -46,9 +33,8 @@ export function helpScreen() {
       "/menu - open the button menu\n" +
       "/register - start registration\n" +
       "/myinfo - view your saved info\n" +
-      "/subjects - list all subjects\n" +
-      "/drive - master resource list\n" +
-      "/leaderboard - show the leaderboard in the group",
+      "/app - open the Sinahard app\n" +
+      "/leaderboard - show the leaderboard in the channel",
     keyboard,
   };
 }
