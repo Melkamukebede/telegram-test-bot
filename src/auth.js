@@ -28,3 +28,8 @@ export async function requireAdmin(ctx, env, ownerOnly = false) {
   if (!ok) await ctx.reply(ownerOnly ? "Only the owner can do that." : "Admins only.");
   return ok;
 }
+// "owner" | "admin" | "student"
+export async function roleOf(ctx, env) {
+  if (isOwner(ctx, env)) return "owner";
+  return (await isAdmin(ctx, env)) ? "admin" : "student";
+}
