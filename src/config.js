@@ -37,10 +37,10 @@ export const SEMESTERS = [
 
 // The registration questions, in order. Add or reorder steps here.
 export const FLOW = [
-  { step: "awaiting_university", field: "university", list: UNIVERSITIES, ask: "Which university will you be attending?" },
-  { step: "awaiting_major", field: "major", list: MAJORS, ask: "📚 What is your intended major?" },
-  { step: "awaiting_city", field: "city", list: CITIES, ask: "📍 Which city are you currently in?" },
-  { step: "awaiting_semester", field: "semester", list: SEMESTERS, ask: "📅 Which semester are you starting?" },
+  { step: "awaiting_university", field: "university", list: UNIVERSITIES, ask: "• Which university will you be attending?" },
+  { step: "awaiting_major", field: "major", list: MAJORS, ask: "• What is your intended major?" },
+  { step: "awaiting_city", field: "city", list: CITIES, ask: "• Which city are you currently in?" },
+  { step: "awaiting_semester", field: "semester", list: SEMESTERS, ask: "• Which semester are you starting?" },
 ];
 
 export function numberedList(items) {
@@ -56,3 +56,12 @@ export function questionText(i) {
 export function todayAddis() {
   return new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().split("T")[0];
 }
+export const BRAND = "Sinahard";
+export const SINAHARD_URL = "https://sinahard1.pages.dev/";
+
+// Posted to the channel 3 times a week. Edit the words here and nothing else changes.
+export const PROMO_TEXT =
+  "📌 Ace capabilities of AI for Enhance your academic preparation with Sinahard — the ultimate practice test & exam prep app!\n" +
+  "• Practice top-tier questions with step-by-step formulas, instant scoring, and offline mode.\n" +
+  "• No app store needed — tap the link below and add to your home screen right now:\n" +
+  "👉 " + SINAHARD_URL;
