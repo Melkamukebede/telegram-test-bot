@@ -1,9 +1,10 @@
 import { InlineKeyboard } from "grammy";
-import { isPrivate, isGroup } from "../auth.js";
+import { isPrivate, isGroup, roleOf } from "../auth.js";
 import { startRegistration } from "../db.js";
 import { questionText, BRAND, SINAHARD_URL } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
+import { syncMenuFor } from "../services/menu.js";
 
 const botName = (ctx) => (ctx.me?.username ? `@${ctx.me.username}` : "the bot");
 
@@ -12,6 +13,10 @@ export function registerStudentCommands(bot, env) {
     if (!isPrivate(ctx)) return;
     const { text, keyboard } = mainMenuScreen();
     await ctx.reply(`🎓 Welcome to ${BRAND}!\n\n${text}`, { reply_markup: keyboard });
+
+    // Owner and admins get the extended "/" menu in their own chat
+    const role = await roleOf(ctx, env);
+    if (role !== "student") await syncMenuFor(bot.api, ctx.from.id, role);
   });
 
   bot.command("menu", async (ctx) => {
@@ -55,7 +60,9 @@ export function registerStudentCommands(bot, env) {
       );
       return;
     }
-    const { text, keyboard } = helpScreen();
+    const role = isPrivate(ctx) ? await roleOf(ctx, env) : "student";
+    const { text, keyboard } = helpScreen(role);
     await ctx.reply(text, { reply_markup: keyboard });
+    if (role !== "student") await syncMenuFor(bot.api, ctx.from.id, role);
   });
 }
