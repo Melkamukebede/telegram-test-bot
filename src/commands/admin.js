@@ -1,3 +1,4 @@
+import { syncMenuFor } from "../services/menu.js";
 import { requireAdmin, isOwner } from "../auth.js";
 import { todayAddis } from "../config.js";
 import { postDailyQuestions, postReveals, postPromo } from "../services/scheduler.js";
@@ -111,20 +112,31 @@ export function registerAdminCommands(bot, env) {
     await ctx.reply(`Removed ${r.meta.changes} unposted question(s) from batch ${id}.`);
   });
 
-  // ---- owner-only admin management ----
   bot.command("addadmin", async (ctx) => {
     if (!(await requireAdmin(ctx, env, true))) return;
     const newId = ctx.match.trim();
     if (!/^\d+$/.test(newId)) { await ctx.reply("Usage: /addadmin <telegram_user_id>"); return; }
+
     await env.DB.prepare("INSERT OR IGNORE INTO admins (telegram_id, added_by, added_at) VALUES (?, ?, ?)")
       .bind(newId, String(ctx.from.id), new Date().toISOString()).run();
-    await ctx.reply(`Added ${newId} as admin.`);
+
+    const synced = await syncMenuFor(bot.api, newId, "admin");
+    await ctx.reply(
+      `Added ${newId} as admin.\n` +
+        (synced
+          ? "Their command menu now shows the admin commands."
+          : "Ask them to send /start to the bot once, so their menu and /help update.")
+    );
   });
 
   bot.command("removeadmin", async (ctx) => {
     if (!(await requireAdmin(ctx, env, true))) return;
     const id = ctx.match.trim();
+    if (!/^\d+$/.test(id)) { await ctx.reply("Usage: /removeadmin <telegram_user_id>"); return; }
+    if (id === String(env.ADMIN_ID).trim()) { await ctx.reply("The owner can't be removed."); return; }
+
     await env.DB.prepare("DELETE FROM admins WHERE telegram_id = ?").bind(id).run();
+    await syncMenuFor(bot.api, id, "student"); // their menu goes back to the student list
     await ctx.reply(`Removed ${id} from admins.`);
   });
 
