@@ -66,3 +66,10 @@ export async function postLeaderboard(env, api) {
   const lines = results.map((u, i) => `${medals[i] || `${i + 1}.`} User ${u.telegram_id} — 🔥${u.streak}`);
   await api.sendMessage(env.GROUP_CHAT_ID, "🏆 Weekly Leaderboard\n\n" + lines.join("\n"));
 }
+export async function postPromo(env, api) {
+  // CHANNEL_ID is optional. If it isn't set, the promo goes where GROUP_CHAT_ID points
+  const chat = env.CHANNEL_ID || env.GROUP_CHAT_ID;
+  await api.sendMessage(chat, PROMO_TEXT, {
+    reply_markup: new InlineKeyboard().url("• Open Sinahard", SINAHARD_URL),
+  });
+}
