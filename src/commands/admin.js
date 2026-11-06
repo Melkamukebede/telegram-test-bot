@@ -78,7 +78,11 @@ export function registerAdminCommands(bot, env) {
     const r = await postReveals(env, bot.api);
     await ctx.reply(r.count ? `Revealed ${r.count} answer(s) in order.` : "Nothing to reveal: no posted, unrevealed questions today.");
   });
-
+  bot.command("testpromo", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    await postPromo(env, bot.api);
+    await ctx.reply("Promo posted to the channel.");
+  });
   bot.command("poststats", async (ctx) => {
     if (!(await requireAdmin(ctx, env))) return;
     const total = await env.DB.prepare("SELECT COUNT(*) AS c FROM users").first();
