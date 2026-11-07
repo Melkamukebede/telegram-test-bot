@@ -65,3 +65,4 @@ export const PROMO_TEXT =
   "• Practice top-tier questions with step-by-step formulas, instant scoring, and offline mode.\n" +
   "• No app store needed — tap the link below and add to your home screen right now:\n" +
   "👉 " + SINAHARD_URL;
+export const DEFAULT_DAILY = 4;
