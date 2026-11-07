@@ -30,7 +30,7 @@ export function registerStudentCommands(bot, env) {
       await ctx.reply(`Please DM ${botName(ctx)} to register.`);
       return;
     }
-    await startRegistration(env, String(ctx.from.id));
+       await startRegistration(env, String(ctx.from.id), ctx.from.first_name);
     await ctx.reply(questionText(0));
   });
 
