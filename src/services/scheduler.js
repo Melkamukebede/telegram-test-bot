@@ -1,4 +1,5 @@
 import { InlineKeyboard } from "grammy";
+import { getDailyTarget } from "../db.js";
 import { todayAddis, PROMO_TEXT, SINAHARD_URL } from "../config.js";
 import { answerKeyboard, formatQuestionPost, formatReveal } from "./formatters.js";
 
@@ -92,24 +93,20 @@ export async function postDailyQuestions(env, api) {
   return { status: "ok", count: sent, need, left: await waiting(), target };
 }
 
+// Reveals everything that was posted but not yet revealed (also catches a missed day)
 export async function postReveals(env, api) {
-  const today = todayAddis();
   const { results } = await env.DB.prepare(
-    `SELECT * FROM daily_questions
-     WHERE session_date = ? AND is_posted = 1 AND is_revealed = 0
-     ORDER BY id ASC`
-  ).bind(today).all();
+    "SELECT * FROM daily_questions WHERE is_posted = 1 AND is_revealed = 0 ORDER BY posted_at ASC, id ASC"
+  ).all();
 
   let count = 0;
   for (const q of results) {
     await api.sendMessage(env.GROUP_CHAT_ID, formatReveal(q));
-    await env.DB.prepare("UPDATE daily_questions SET is_revealed = 1 WHERE id = ?")
-      .bind(q.id).run();
+    await env.DB.prepare("UPDATE daily_questions SET is_revealed = 1 WHERE id = ?").bind(q.id).run();
     count++;
   }
   return { count };
 }
-
 export async function postLeaderboard(env, api) {
   const { results } = await env.DB.prepare(
     "SELECT first_name, streak FROM users WHERE streak > 0 ORDER BY streak DESC LIMIT 10"
