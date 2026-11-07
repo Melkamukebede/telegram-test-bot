@@ -56,7 +56,13 @@ export function registerCallbacks(bot, env) {
       await ctx.answerCallbackQuery({ text: "Register first: DM the bot and send /register", show_alert: true });
       return;
     }
-
+    // Keep the leaderboard name current (first name only)
+    const name = (ctx.from.first_name || "").slice(0, 20);
+    if (name) {
+      await env.DB.prepare(
+        "UPDATE users SET first_name = ? WHERE telegram_id = ? AND (first_name IS NULL OR first_name != ?)"
+      ).bind(name, telegramId, name).run();
+    }
     const q = await env.DB.prepare(
       "SELECT correct_option, is_revealed FROM daily_questions WHERE id = ? AND is_posted = 1"
     ).bind(questionId).first();
