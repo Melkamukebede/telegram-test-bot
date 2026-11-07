@@ -21,6 +21,8 @@ export const ADMIN_COMMANDS = [
   { command: "promptguide", description: "Get the AI prompt for question files" },
   { command: "setupsteps", description: "Full setup checklist" },
   { command: "admins", description: "List the owner and admins" },
+  { command: "pause", description: "Pause the 9 AM auto-posting" },
+  { command: "resume", description: "Resume the 9 AM auto-posting" },
 ];
 
 export const OWNER_COMMANDS = [
@@ -42,6 +44,8 @@ export const ADMIN_HELP_LINES = [
   "/setupsteps - setup checklist",
   "/admins - owner and admins",
   "Send a .txt file as a File to import questions",
+ "/pause - stop the 9 AM auto-posting",
+ "/resume - start the 9 AM auto-posting again",
 ];
 
 export const OWNER_HELP_LINES = [
