@@ -40,7 +40,7 @@ export function registerCallbacks(bot, env) {
   });
 
   bot.callbackQuery("start_register", async (ctx) => {
-    await startRegistration(env, String(ctx.from.id));
+        await startRegistration(env, String(ctx.from.id), ctx.from.first_name);
     await ctx.answerCallbackQuery();
     await show(ctx, questionText(0), new InlineKeyboard().text("⬅ Back", "main_menu"));
   });
