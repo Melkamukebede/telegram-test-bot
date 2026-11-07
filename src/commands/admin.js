@@ -1,8 +1,9 @@
-import { syncMenuFor } from "../services/menu.js";
-import { requireAdmin, isOwner } from "../auth.js";
+import { requireAdmin } from "../auth.js";
 import { todayAddis } from "../config.js";
-import { postDailyQuestions, postReveals, postPromo } from "../services/scheduler.js";
 import { getDailyTarget, setSetting, isPaused } from "../db.js";
+import { postDailyQuestions, postReveals, postPromo } from "../services/scheduler.js";
+import { syncMenuFor } from "../services/menu.js";
+
 // Accepts 1-4 or A-D
 function parseCorrect(s) {
   const t = s.trim().toUpperCase();
@@ -12,6 +13,10 @@ function parseCorrect(s) {
 }
 
 export function registerAdminCommands(bot, env) {
+  // ================================
+  // Adding questions
+  // ================================
+
   // /addquestion subject | Question | Option A | Option B | Option C | Option D | B
   bot.command("addquestion", async (ctx) => {
     if (!(await requireAdmin(ctx, env))) return;
@@ -35,14 +40,41 @@ export function registerAdminCommands(bot, env) {
     await ctx.reply(`Question added under "${subject.toLowerCase()}".`);
   });
 
-  // /setplan biology 3  (3 = total questions for today)
+  bot.command("queue", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    const { results } = await env.DB.prepare(
+      "SELECT subject, COUNT(*) AS c FROM daily_questions WHERE is_posted = 0 GROUP BY subject"
+    ).all();
+    await ctx.reply(
+      results.length
+        ? "📥 Unposted questions:\n" + results.map((r) => `${r.subject}: ${r.c}`).join("\n")
+        : "The queue is empty."
+    );
+  });
+
+  // Removes only UNPOSTED questions from an import
+  bot.command("undobatch", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    const id = ctx.match.trim();
+    if (!id) { await ctx.reply("Usage: /undobatch <batch_id>"); return; }
+    const r = await env.DB.prepare("DELETE FROM daily_questions WHERE batch_id = ? AND is_posted = 0")
+      .bind(id).run();
+    await ctx.reply(`Removed ${r.meta.changes} unposted question(s) from batch ${id}.`);
+  });
+
+  // ================================
+  // Daily quota and plan
+  // ================================
+
+  // /setplan <subject> [count]
+  // This subject goes first today. Count = total for today (default: the daily quota).
   bot.command("setplan", async (ctx) => {
     if (!(await requireAdmin(ctx, env))) return;
 
     const [subjectRaw, countRaw] = ctx.match.trim().split(/\s+/);
-    const count = parseInt(countRaw, 10);
+    const count = countRaw === undefined ? await getDailyTarget(env) : parseInt(countRaw, 10);
     if (!subjectRaw || Number.isNaN(count) || count < 1 || count > 20) {
-      await ctx.reply("Usage: /setplan <subject> <count 1-20>\nExample: /setplan td 3");
+      await ctx.reply("Usage: /setplan <subject> [count 1-20]\nExample: /setplan logic 4");
       return;
     }
     const subject = subjectRaw.toLowerCase();
@@ -57,19 +89,79 @@ export function registerAdminCommands(bot, env) {
     ).bind(subject).first();
 
     await ctx.reply(
-      `Plan set: ${count} "${subject}" question(s) today.\nUnposted in the queue: ${avail.c}` +
-        (avail.c < count ? "\n⚠️ Fewer than the plan needs. Upload more questions." : "")
+      `Today's plan: ${count} question(s), "${subject}" first.\n"${subject}" questions waiting: ${avail.c}` +
+        (avail.c < count ? "\nIf it runs out, the bot fills the rest from other subjects." : "")
     );
   });
 
+  // /setdaily <1-20>: how many questions post every day
+  bot.command("setdaily", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    const n = parseInt(ctx.match.trim(), 10);
+    if (Number.isNaN(n) || n < 1 || n > 20) {
+      await ctx.reply("Usage: /setdaily <1-20>\nExample: /setdaily 4");
+      return;
+    }
+    await setSetting(env, "daily_target", n);
+    await ctx.reply(`Daily quota set to ${n}. Questions post at 9:00 AM, answers at 7:00 PM.`);
+  });
+
+  bot.command("pause", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    await setSetting(env, "paused", "1");
+    await ctx.reply(
+      "⏸ Auto-posting paused. No questions will post at 9 AM until you send /resume.\n" +
+        "Answers for questions already posted still go out at 7 PM. /testquestion still works by hand."
+    );
+  });
+
+  bot.command("resume", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    await setSetting(env, "paused", "0");
+    await ctx.reply(
+      "▶️ Auto-posting resumed. The next questions post at 9:00 AM. If it's already past 9 AM, send /testquestion to post today's now."
+    );
+  });
+
+  // Today's numbers at a glance
+  bot.command("today", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+
+    const today = todayAddis();
+    const target = await getDailyTarget(env);
+    const plan = await env.DB.prepare("SELECT * FROM daily_plan WHERE plan_date = ?").bind(today).first();
+
+    const count = async (where, ...args) => {
+      const stmt = env.DB.prepare(`SELECT COUNT(*) AS c FROM daily_questions WHERE ${where}`);
+      return (await (args.length ? stmt.bind(...args) : stmt).first()).c;
+    };
+    const posted = await count("session_date = ?", today);
+    const waiting = await count("is_posted = 0");
+    const open = await count("is_posted = 1 AND is_revealed = 0");
+    const total = plan ? plan.question_count : target;
+
+    await ctx.reply(
+      ((await isPaused(env)) ? "⏸ PAUSED (send /resume)\n" : "") +
+        `📅 ${today}\n` +
+        `Quota today: ${total}${plan ? ` (${plan.subject} first)` : " (default)"}\n` +
+        `Posted today: ${posted}\n` +
+        `Still to post: ${Math.max(total - posted, 0)}\n` +
+        `Waiting in queue: ${waiting}\n` +
+        `Awaiting answer reveal: ${open}\n\n` +
+        "⏰ 9:00 AM questions · 7:00 PM answers"
+    );
+  });
+
+  // ================================
+  // Manual posting (for testing or catching up)
+  // ================================
   bot.command("testquestion", async (ctx) => {
     if (!(await requireAdmin(ctx, env))) return;
     const r = await postDailyQuestions(env, bot.api);
     const messages = {
-      ok: `Sent ${r.count} question(s) to the group.`,
-      no_plan: "No plan for today. Use /setplan <subject> <count> first.",
-      already_done: `Today's plan is already fully posted. Raise the count with /setplan to post more.`,
-      empty: `No unposted questions left for "${r.subject}".`,
+      ok: `Posted ${r.count} question(s). ${r.left} left in the queue.`,
+      already_done: "Today's quota is already posted. Raise it with /setdaily or /setplan.",
+      empty: "The queue is empty. Upload more questions.",
     };
     await ctx.reply(messages[r.status]);
   });
@@ -77,13 +169,22 @@ export function registerAdminCommands(bot, env) {
   bot.command("testreveal", async (ctx) => {
     if (!(await requireAdmin(ctx, env))) return;
     const r = await postReveals(env, bot.api);
-    await ctx.reply(r.count ? `Revealed ${r.count} answer(s) in order.` : "Nothing to reveal: no posted, unrevealed questions today.");
+    await ctx.reply(
+      r.count
+        ? `Revealed ${r.count} answer(s) in order.`
+        : "Nothing to reveal: no posted, unrevealed questions."
+    );
   });
+
   bot.command("testpromo", async (ctx) => {
     if (!(await requireAdmin(ctx, env))) return;
     await postPromo(env, bot.api);
     await ctx.reply("Promo posted to the channel.");
   });
+
+  // ================================
+  // Information
+  // ================================
   bot.command("poststats", async (ctx) => {
     if (!(await requireAdmin(ctx, env))) return;
     const total = await env.DB.prepare("SELECT COUNT(*) AS c FROM users").first();
@@ -93,25 +194,16 @@ export function registerAdminCommands(bot, env) {
     await ctx.reply(`Users started: ${total.c}\nRegistration finished: ${done.c}`);
   });
 
-  bot.command("queue", async (ctx) => {
+  bot.command("admins", async (ctx) => {
     if (!(await requireAdmin(ctx, env))) return;
-    const { results } = await env.DB.prepare(
-      "SELECT subject, COUNT(*) AS c FROM daily_questions WHERE is_posted = 0 GROUP BY subject"
-    ).all();
-    await ctx.reply(
-      results.length ? "📥 Unposted questions:\n" + results.map((r) => `${r.subject}: ${r.c}`).join("\n") : "The queue is empty."
-    );
+    const { results } = await env.DB.prepare("SELECT telegram_id FROM admins").all();
+    const list = results.map((a) => `• ${a.telegram_id}`).join("\n");
+    await ctx.reply(`Owner: ${String(env.ADMIN_ID).trim()}\n\nAdmins:\n${list || "(none yet)"}`);
   });
 
-  // Removes only UNPOSTED questions from an import
-  bot.command("undobatch", async (ctx) => {
-    if (!(await requireAdmin(ctx, env))) return;
-    const id = ctx.match.trim();
-    if (!id) { await ctx.reply("Usage: /undobatch <batch_id>"); return; }
-    const r = await env.DB.prepare("DELETE FROM daily_questions WHERE batch_id = ? AND is_posted = 0").bind(id).run();
-    await ctx.reply(`Removed ${r.meta.changes} unposted question(s) from batch ${id}.`);
-  });
-
+  // ================================
+  // Owner only: manage admins
+  // ================================
   bot.command("addadmin", async (ctx) => {
     if (!(await requireAdmin(ctx, env, true))) return;
     const newId = ctx.match.trim();
@@ -128,20 +220,7 @@ export function registerAdminCommands(bot, env) {
           : "Ask them to send /start to the bot once, so their menu and /help update.")
     );
   });
-  bot.command("pause", async (ctx) => {
-    if (!(await requireAdmin(ctx, env))) return;
-    await setSetting(env, "paused", "1");
-    await ctx.reply(
-      "⏸ Auto-posting paused. No questions will post at 9 AM until you send /resume.\n" +
-        "Answers for questions already posted still go out at 7 PM. /testquestion still works by hand."
-    );
-  });
 
-  bot.command("resume", async (ctx) => {
-    if (!(await requireAdmin(ctx, env))) return;
-    await setSetting(env, "paused", "0");
-    await ctx.reply("▶️ Auto-posting resumed. The next questions post at 9:00 AM. If it's already past 9 AM, send /testquestion to post today's now.");
-  });
   bot.command("removeadmin", async (ctx) => {
     if (!(await requireAdmin(ctx, env, true))) return;
     const id = ctx.match.trim();
@@ -151,12 +230,5 @@ export function registerAdminCommands(bot, env) {
     await env.DB.prepare("DELETE FROM admins WHERE telegram_id = ?").bind(id).run();
     await syncMenuFor(bot.api, id, "student"); // their menu goes back to the student list
     await ctx.reply(`Removed ${id} from admins.`);
-  });
-
-  bot.command("admins", async (ctx) => {
-    if (!(await requireAdmin(ctx, env))) return;
-    const { results } = await env.DB.prepare("SELECT telegram_id FROM admins").all();
-    const list = results.map((a) => `• ${a.telegram_id}`).join("\n");
-    await ctx.reply(`Owner: ${String(env.ADMIN_ID).trim()}\n\nAdmins:\n${list || "(none yet)"}`);
   });
 }
