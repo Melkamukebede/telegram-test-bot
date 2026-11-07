@@ -49,3 +49,23 @@ export async function getAllSubjects(env) {
   ).all();
   return results || [];
 }
+export async function getSetting(env, key, fallback = null) {
+  const row = await env.DB.prepare("SELECT value FROM settings WHERE key = ?").bind(key).first();
+  return row ? row.value : fallback;
+}
+
+export async function setSetting(env, key, value) {
+  await env.DB.prepare(
+    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+  ).bind(key, String(value)).run();
+}
+
+// If the table is missing or the value is bad, fall back to 4 so the 9 AM job never dies over a setting
+export async function getDailyTarget(env) {
+  try {
+    const v = parseInt(await getSetting(env, "daily_target", ""), 10);
+    return Number.isInteger(v) && v >= 1 ? v : DEFAULT_DAILY;
+  } catch {
+    return DEFAULT_DAILY;
+  }
+}
