@@ -1,4 +1,5 @@
 import { Bot } from "grammy";
+import { registerCleanup } from "./services/cleanup.js";
 import { registerCallbacks } from "./handlers/callbacks.js";
 import { registerStudentCommands } from "./commands/student.js";
 import { registerAdminCommands } from "./commands/admin.js";
@@ -8,6 +9,9 @@ import { registerRegistration } from "./handlers/registration.js";
 
 export function createBot(env, origin = "") {
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+
+  // Must be first: it adds the Clear button to admin replies before any command runs
+  registerCleanup(bot, env);
 
   registerCallbacks(bot, env);
   registerStudentCommands(bot, env);
