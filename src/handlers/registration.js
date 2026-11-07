@@ -46,7 +46,7 @@ export function registerRegistration(bot, env) {
     await ctx.reply(
       "✅ Registration Complete!\n\n" +
         `University: ${u.university}\nMajor: ${u.major}\nCity: ${u.city}\nSemester: ${u.semester}\n\n` +
-        "Answer the daily questions in the group to build your streak. Welcome! 🚀"
+        "Answer the daily questions in the channel to build your streak. Your first name appears on the leaderboard. Welcome! "
     );
   });
 }
