@@ -1,3 +1,4 @@
+import { DEFAULT_DAILY } from "./config.js";
 export async function getUser(env, telegramId) {
   const row = await env.DB.prepare("SELECT * FROM users WHERE telegram_id = ?")
     .bind(telegramId).first();
