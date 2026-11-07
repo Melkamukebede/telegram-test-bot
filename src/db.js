@@ -21,14 +21,21 @@ export async function upsertUser(env, telegramId, fields) {
   }
 }
 
-// Used by /register and the "Register Now" button
-export async function startRegistration(env, telegramId) {
+export async function startRegistration(env, telegramId, firstName = "") {
   const existing = await getUser(env, telegramId);
   const fields = { step: "awaiting_university" };
+  if (firstName) fields.first_name = firstName.slice(0, 20);
   if (!existing) fields.registered_at = new Date().toISOString();
   await upsertUser(env, telegramId, fields);
 }
 
+export async function isPaused(env) {
+  try {
+    return (await getSetting(env, "paused", "0")) === "1";
+  } catch {
+    return false; // if the settings table has a problem, keep posting
+  }
+}
 export async function getSubject(env, command) {
   const row = await env.DB.prepare("SELECT * FROM subjects WHERE command = ?")
     .bind(command).first();
