@@ -1,5 +1,6 @@
 import { Bot, webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
+import { isPaused } from "./db.js";
 import { postDailyQuestions, postReveals, postLeaderboard, postPromo } from "./services/scheduler.js";
 import { renderGuidePage } from "./web/guidePage.js";
 
@@ -9,6 +10,7 @@ export default {
 
     if (request.method === "GET") {
       if (url.pathname === "/guide") {
+        // If GUIDE_KEY is set, the page needs ?key=VALUE
         if (env.GUIDE_KEY && url.searchParams.get("key") !== env.GUIDE_KEY) {
           return new Response("Not found", { status: 404 });
         }
@@ -22,12 +24,16 @@ export default {
     if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
     const bot = createBot(env, url.origin);
+    // If WEBHOOK_SECRET is set, requests without Telegram's secret header are rejected
     const handle = webhookCallback(bot, "cloudflare-mod", { secretToken: env.WEBHOOK_SECRET });
     return handle(request);
   },
 
-  // The hour (UTC) decides which job runs:
-  // 05 questions, 11 answers, 13 promo (Mon/Wed/Fri), 15 leaderboard (Sunday)
+  // The UTC hour decides which job runs (Addis Ababa = UTC+3):
+  //   06:00 UTC = 9:00 AM   daily questions
+  //   13:00 UTC = 4:00 PM   Sinahard promo (Mon/Wed/Fri, set by the cron in wrangler.toml)
+  //   16:00 UTC = 7:00 PM   answers and explanations
+  //   17:00 UTC = 8:00 PM   leaderboard (Sunday only)
   async scheduled(event, env, ctx) {
     const api = new Bot(env.TELEGRAM_BOT_TOKEN).api;
     const when = new Date(event.scheduledTime);
@@ -39,18 +45,22 @@ export default {
     };
 
     try {
-      if (hour === 5) {
-        const r = await postDailyQuestions(env, api);
-        if (r.status === "no_plan") {
-          await alertOwner("⚠️ No plan set for today, so nothing was posted. Use /setplan <subject> <count>.");
-        } else if (r.status === "empty") {
-          await alertOwner(`⚠️ No unposted questions left for "${r.subject}". Upload more.`);
+      if (hour === 6) {
+        if (await isPaused(env)) {
+          await alertOwner("⏸ Auto-posting is paused, so no questions were posted today. Send /resume when you're ready.");
+        } else {
+          const r = await postDailyQuestions(env, api);
+          if (r.status === "empty") {
+            await alertOwner("⚠️ The queue is empty, so nothing was posted at 9 AM. Upload questions as a .txt file.");
+          } else if (r.status === "ok" && r.left < r.target) {
+            await alertOwner(`⚠️ Queue is low: ${r.left} question(s) left, and the daily quota is ${r.target}. Upload more soon.`);
+          }
         }
-      } else if (hour === 11) {
-        await postReveals(env, api);
       } else if (hour === 13) {
         await postPromo(env, api);
-      } else if (hour === 15 && day === 0) {
+      } else if (hour === 16) {
+        await postReveals(env, api);
+      } else if (hour === 17 && day === 0) {
         await postLeaderboard(env, api);
       }
     } catch (err) {
