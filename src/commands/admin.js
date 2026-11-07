@@ -2,7 +2,7 @@ import { syncMenuFor } from "../services/menu.js";
 import { requireAdmin, isOwner } from "../auth.js";
 import { todayAddis } from "../config.js";
 import { postDailyQuestions, postReveals, postPromo } from "../services/scheduler.js";
-
+import { getDailyTarget, setSetting, isPaused } from "../db.js";
 // Accepts 1-4 or A-D
 function parseCorrect(s) {
   const t = s.trim().toUpperCase();
@@ -128,7 +128,20 @@ export function registerAdminCommands(bot, env) {
           : "Ask them to send /start to the bot once, so their menu and /help update.")
     );
   });
+  bot.command("pause", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    await setSetting(env, "paused", "1");
+    await ctx.reply(
+      "⏸ Auto-posting paused. No questions will post at 9 AM until you send /resume.\n" +
+        "Answers for questions already posted still go out at 7 PM. /testquestion still works by hand."
+    );
+  });
 
+  bot.command("resume", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    await setSetting(env, "paused", "0");
+    await ctx.reply("▶️ Auto-posting resumed. The next questions post at 9:00 AM. If it's already past 9 AM, send /testquestion to post today's now.");
+  });
   bot.command("removeadmin", async (ctx) => {
     if (!(await requireAdmin(ctx, env, true))) return;
     const id = ctx.match.trim();
