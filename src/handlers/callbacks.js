@@ -1,4 +1,4 @@
-import { isPrivate, roleOf } from "../auth.js";
+import { isPrivate, roleOf, isAdmin } from "../auth.js";
 import { InlineKeyboard } from "grammy";
 import { getUser, startRegistration } from "../db.js";
 import { questionText, todayAddis } from "../config.js";
@@ -27,7 +27,7 @@ export function registerCallbacks(bot, env) {
     await show(ctx, text, keyboard);
   });
 
-    bot.callbackQuery("screen_help", async (ctx) => {
+  bot.callbackQuery("screen_help", async (ctx) => {
     const role = isPrivate(ctx) ? await roleOf(ctx, env) : "student";
     const { text, keyboard } = helpScreen(role);
     await ctx.answerCallbackQuery();
@@ -35,12 +35,16 @@ export function registerCallbacks(bot, env) {
   });
 
   bot.callbackQuery("show_leaderboard", async (ctx) => {
+    if (!(await isAdmin(ctx, env))) {
+      await ctx.answerCallbackQuery({ text: "Admins only.", show_alert: true });
+      return;
+    }
     await ctx.answerCallbackQuery({ text: "Leaderboard posted to the channel." });
     await postLeaderboard(env, bot.api);
   });
 
   bot.callbackQuery("start_register", async (ctx) => {
-        await startRegistration(env, String(ctx.from.id), ctx.from.first_name);
+    await startRegistration(env, String(ctx.from.id), ctx.from.first_name);
     await ctx.answerCallbackQuery();
     await show(ctx, questionText(0), new InlineKeyboard().text("⬅ Back", "main_menu"));
   });

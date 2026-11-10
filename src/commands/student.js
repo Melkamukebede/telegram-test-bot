@@ -1,5 +1,5 @@
 import { InlineKeyboard } from "grammy";
-import { isPrivate, isGroup, roleOf } from "../auth.js";
+import { isPrivate, isGroup, isAdmin, roleOf } from "../auth.js";
 import { startRegistration } from "../db.js";
 import { questionText, BRAND, SINAHARD_URL } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
@@ -30,7 +30,7 @@ export function registerStudentCommands(bot, env) {
       await ctx.reply(`Please DM ${botName(ctx)} to register.`);
       return;
     }
-       await startRegistration(env, String(ctx.from.id), ctx.from.first_name);
+    await startRegistration(env, String(ctx.from.id), ctx.from.first_name);
     await ctx.reply(questionText(0));
   });
 
@@ -49,6 +49,10 @@ export function registerStudentCommands(bot, env) {
   });
 
   bot.command("leaderboard", async (ctx) => {
+    if (!(await isAdmin(ctx, env))) {
+      if (isPrivate(ctx)) await ctx.reply("Admins only.");
+      return;
+    }
     await postLeaderboard(env, bot.api);
     if (isPrivate(ctx)) await ctx.reply("Leaderboard posted to the channel.");
   });

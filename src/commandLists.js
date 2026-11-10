@@ -5,7 +5,6 @@ export const STUDENT_COMMANDS = [
   { command: "menu", description: "Open the main menu" },
   { command: "myinfo", description: "View your saved registration info" },
   { command: "app", description: "Open the Sinahard app" },
-  { command: "leaderboard", description: "View the current leaderboard" },
   { command: "help", description: "Get help and list of commands" },
 ];
 
@@ -15,6 +14,7 @@ export const ADMIN_COMMANDS = [
   { command: "testquestion", description: "Post today's questions now" },
   { command: "testreveal", description: "Post answers and explanations now" },
   { command: "testpromo", description: "Post the Sinahard promo now" },
+  { command: "leaderboard", description: "Post the current leaderboard" },
   { command: "addquestion", description: "Add one question by hand" },
   { command: "undobatch", description: "Delete the unposted questions of an import" },
   { command: "poststats", description: "Registration numbers" },
@@ -37,6 +37,7 @@ export const ADMIN_HELP_LINES = [
   "/testquestion - post today's questions now",
   "/testreveal - post answers and explanations now",
   "/testpromo - post the Sinahard promo now",
+  "/leaderboard - post the leaderboard in the channel",
   "/addquestion subject | Question | A | B | C | D | letter",
   "/undobatch <batch_id> - delete unposted questions of an import",
   "/poststats - registration numbers",
@@ -44,8 +45,8 @@ export const ADMIN_HELP_LINES = [
   "/setupsteps - setup checklist",
   "/admins - owner and admins",
   "Send a .txt file as a File to import questions",
- "/pause - stop the 9 AM auto-posting",
- "/resume - start the 9 AM auto-posting again",
+  "/pause - stop the 9 AM auto-posting",
+  "/resume - start the 9 AM auto-posting again",
 ];
 
 export const OWNER_HELP_LINES = [

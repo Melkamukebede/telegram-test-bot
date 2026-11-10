@@ -82,7 +82,6 @@ The configured cron jobs run in UTC:
 | `/register` | Start or restart registration |
 | `/myinfo` | Show saved registration information |
 | `/app` | Show the Sinahard app link |
-| `/leaderboard` | Post the current leaderboard |
 | `/help` | Show available help |
 
 ## Admin commands
@@ -94,6 +93,7 @@ Admins use these commands in a private chat with the bot:
 - `/setplan subject [count]` — prioritize a subject for today
 - `/setdaily 1-20` — set the default daily quota
 - `/today` — show today's posting status
+- `/leaderboard` — post the current leaderboard to the channel
 - `/pause` and `/resume` — control scheduled question posting
 - `/testquestion` — post questions immediately
 - `/testreveal` — reveal answers immediately
