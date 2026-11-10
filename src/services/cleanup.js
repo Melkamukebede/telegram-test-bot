@@ -1,11 +1,4 @@
-import { InlineKeyboard } from "grammy";
 import { isPrivate } from "../auth.js";
-
-function commandName(ctx) {
-  const t = ctx.message?.text;
-  if (!t || !t.startsWith("/")) return null;
-  return t.slice(1).split(/[\s@]/)[0].toLowerCase();
-}
 
 function withClearButton(replyMarkup, messageId) {
   const clearRow = [{ text: "🧹 Clear", callback_data: `clear_${messageId}` }];
