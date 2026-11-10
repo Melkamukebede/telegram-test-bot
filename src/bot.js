@@ -10,8 +10,8 @@ import { registerRegistration } from "./handlers/registration.js";
 export function createBot(env, origin = "") {
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 
-  // Must be first: it adds the Clear button to admin replies before any command runs
-  registerCleanup(bot, env);
+  // Must be first so every private-chat reply gets a Clear button.
+  registerCleanup(bot);
 
   registerCallbacks(bot, env);
   registerStudentCommands(bot, env);
