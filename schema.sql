@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS users (
   telegram_id TEXT PRIMARY KEY,
+  first_name TEXT,
   university TEXT, major TEXT, city TEXT, semester TEXT,
   step TEXT,
   streak INTEGER DEFAULT 0,
@@ -47,6 +48,11 @@ CREATE TABLE IF NOT EXISTS admins (
   telegram_id TEXT PRIMARY KEY,
   added_by TEXT,
   added_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_questions_queue ON daily_questions (subject, is_posted);
