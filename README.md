@@ -5,7 +5,7 @@ A Telegram learning bot for university students. It runs on **Cloudflare Workers
 ## Features
 
 - Student registration for university, major, city, and semester
-- Daily multiple-choice questions with A-D answer buttons
+- Three mixed multiple-choice questions on Tuesday, Friday, Saturday, and Sunday
 - Button-collapsed question posts with compact per-question answer reveals
 - Student streaks and a Sunday leaderboard
 - Admin question entry with `/addquestion`
@@ -69,9 +69,9 @@ npm run tail      # Stream Worker logs
 
 The configured cron jobs run in UTC:
 
-- `06:00` — post daily questions
+- `18:00` on Tuesday, Friday, Saturday, and Sunday — post three mixed questions (9:00 PM Addis Ababa)
+- `04:00` on Monday, Wednesday, Saturday, and Sunday — reveal answers with view buttons (7:00 AM Addis Ababa)
 - `13:00` on Monday, Wednesday, and Friday — post the Sinahard promotion
-- `16:00` — reveal answers and explanations
 - `17:00` on Sunday — post the leaderboard
 
 ## Student commands

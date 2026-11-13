@@ -65,12 +65,13 @@ async function pickQuestions(env, preferred, need) {
   return picked;
 }
 
-// Fills today's quota. Safe to run any time, any number of times.
-export async function postDailyQuestions(env, api) {
+// Fills today's quota. Scheduled posts use three mixed questions; manual admin
+// tests keep the configured daily target and subject plan.
+export async function postDailyQuestions(env, api, { scheduled = false } = {}) {
   const today = todayAddis();
-  const target = await getDailyTarget(env);
   const plan = await env.DB.prepare("SELECT * FROM daily_plan WHERE plan_date = ?").bind(today).first();
-  const total = plan ? plan.question_count : target;
+  const target = scheduled ? 3 : await getDailyTarget(env);
+  const total = scheduled ? 3 : plan ? plan.question_count : target;
 
   const done = await env.DB.prepare(
     "SELECT COUNT(*) AS c FROM daily_questions WHERE session_date = ?"
@@ -82,7 +83,7 @@ export async function postDailyQuestions(env, api) {
 
   if (need <= 0) return { status: "already_done", count: 0, need: 0, left: await waiting(), target };
 
-  const picked = await pickQuestions(env, plan ? plan.subject : "", need);
+  const picked = await pickQuestions(env, scheduled ? "" : plan ? plan.subject : "", need);
   if (!picked.length) return { status: "empty", count: 0, need, left: 0, target };
 
   let sent = 0;

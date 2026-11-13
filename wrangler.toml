@@ -13,4 +13,4 @@ binding = "DB"
 database_name = "freshman_hub_db"
 database_id = "3945bdfa-b5c6-4a47-8611-f60ee2ee2c49"
 [triggers]
-crons = ["0 6 * * *", "0 16 * * *", "0 17 * * SUN", "0 13 * * MON,WED,FRI"]
+crons = ["0 18 * * TUE,FRI,SAT,SUN", "0 4 * * MON,WED,SAT,SUN", "0 17 * * SUN", "0 13 * * MON,WED,FRI"]

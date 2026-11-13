@@ -30,9 +30,9 @@ export default {
   },
 
   // The UTC hour decides which job runs (Addis Ababa = UTC+3):
-  //   06:00 UTC = 9:00 AM   daily questions
+  //   18:00 UTC = 9:00 PM 3 mixed questions (Tue/Fri/Sat/Sun)
+  //   04:00 UTC = 7:00 AM answers and explanations (Wed/Sat/Sun/Mon)
   //   13:00 UTC = 4:00 PM   Sinahard promo (Mon/Wed/Fri, set by the cron in wrangler.toml)
-  //   16:00 UTC = 7:00 PM   answers and explanations
   //   17:00 UTC = 8:00 PM   leaderboard (Sunday only)
   async scheduled(event, env, ctx) {
     const api = new Bot(env.TELEGRAM_BOT_TOKEN).api;
@@ -45,20 +45,20 @@ export default {
     };
 
     try {
-      if (hour === 6) {
+      if (hour === 18) {
         if (await isPaused(env)) {
-          await alertOwner("⏸ Auto-posting is paused, so no questions were posted today. Send /resume when you're ready.");
+          await alertOwner("⏸ Auto-posting is paused, so no questions were posted tonight. Send /resume when you're ready.");
         } else {
-          const r = await postDailyQuestions(env, api);
+          const r = await postDailyQuestions(env, api, { scheduled: true });
           if (r.status === "empty") {
-            await alertOwner("⚠️ The queue is empty, so nothing was posted at 9 AM. Upload questions as a .txt file.");
+            await alertOwner("⚠️ The queue is empty, so no questions were posted at 9 PM. Upload questions as a .txt file.");
           } else if (r.status === "ok" && r.left < r.target) {
             await alertOwner(`⚠️ Queue is low: ${r.left} question(s) left, and the daily quota is ${r.target}. Upload more soon.`);
           }
         }
       } else if (hour === 13) {
         await postPromo(env, api);
-      } else if (hour === 16) {
+      } else if (hour === 4) {
         await postReveals(env, api);
       } else if (hour === 17 && day === 0) {
         await postLeaderboard(env, api);
