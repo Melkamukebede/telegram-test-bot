@@ -4,6 +4,7 @@ import { getUser, startRegistration } from "../db.js";
 import { questionText, todayAddis } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
+import { formatReveal } from "../services/formatters.js";
 
 // Edit the message in place; ignore Telegram's "message is not modified" error
 async function show(ctx, text, keyboard) {
@@ -86,7 +87,26 @@ export function registerCallbacks(bot, env) {
     }
 
     await ctx.answerCallbackQuery({
-      text: isCorrect ? "Correct! 🔥 Streak +1" : "Not quite. The answer and explanation come at 2 PM.",
+      text: isCorrect ? "Correct! 🔥 Streak +1" : "Not quite. The answer and explanation will appear later today.",
     });
+  });
+
+  bot.callbackQuery(/^view_answer_(\d+)$/, async (ctx) => {
+    const questionId = Number(ctx.match[1]);
+    const q = await env.DB.prepare(
+      "SELECT * FROM daily_questions WHERE id = ? AND is_posted = 1 AND is_revealed = 1"
+    ).bind(questionId).first();
+
+    if (!q) {
+      await ctx.answerCallbackQuery({ text: "This answer is not available yet." });
+      return;
+    }
+
+    await ctx.answerCallbackQuery({ text: "Answer revealed." });
+    try {
+      await ctx.editMessageText(formatReveal(q, true), { parse_mode: "HTML" });
+    } catch (e) {
+      if (!String(e.message).includes("message is not modified")) throw e;
+    }
   });
 }

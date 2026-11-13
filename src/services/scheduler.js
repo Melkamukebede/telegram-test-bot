@@ -1,7 +1,12 @@
 import { InlineKeyboard } from "grammy";
 import { getDailyTarget } from "../db.js";
 import { todayAddis, PROMO_TEXT, SINAHARD_URL } from "../config.js";
-import { answerKeyboard, formatQuestionPost, formatReveal } from "./formatters.js";
+import {
+  answerKeyboard,
+  formatQuestionPost,
+  formatReveal,
+  revealKeyboard,
+} from "./formatters.js";
 
 // Posts whatever is still owed for today's plan. The plan's count is the
 // TOTAL for the day, so running this twice (manual test, then cron) never doubles up.
@@ -83,6 +88,7 @@ export async function postDailyQuestions(env, api) {
   for (const q of picked) {
     await api.sendMessage(env.GROUP_CHAT_ID, formatQuestionPost(q, q.subject || "quiz"), {
       reply_markup: answerKeyboard(q.id),
+      parse_mode: "HTML",
     });
     // Marked right after each send, so a crash mid-loop can't re-post a question
     await env.DB.prepare(
@@ -101,7 +107,10 @@ export async function postReveals(env, api) {
 
   let count = 0;
   for (const q of results) {
-    await api.sendMessage(env.GROUP_CHAT_ID, formatReveal(q));
+    await api.sendMessage(env.GROUP_CHAT_ID, formatReveal(q), {
+      reply_markup: revealKeyboard(q.id),
+      parse_mode: "HTML",
+    });
     await env.DB.prepare("UPDATE daily_questions SET is_revealed = 1 WHERE id = ?").bind(q.id).run();
     count++;
   }
