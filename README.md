@@ -6,7 +6,7 @@ A Telegram learning bot for university students. It runs on **Cloudflare Workers
 
 - Student registration for university, major, city, and semester
 - Daily multiple-choice questions with A-D answer buttons
-- Spoiler-collapsed question posts with compact per-question answer reveals
+- Button-collapsed question posts with compact per-question answer reveals
 - Student streaks and a Sunday leaderboard
 - Admin question entry with `/addquestion`
 - Bulk question import from `.txt` files

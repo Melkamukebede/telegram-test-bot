@@ -5,6 +5,7 @@ import {
   answerKeyboard,
   formatQuestionPost,
   formatReveal,
+  questionKeyboard,
   revealKeyboard,
 } from "./formatters.js";
 
@@ -87,7 +88,7 @@ export async function postDailyQuestions(env, api) {
   let sent = 0;
   for (const q of picked) {
     await api.sendMessage(env.GROUP_CHAT_ID, formatQuestionPost(q, q.subject || "quiz"), {
-      reply_markup: answerKeyboard(q.id),
+      reply_markup: questionKeyboard(q.id),
       parse_mode: "HTML",
     });
     // Marked right after each send, so a crash mid-loop can't re-post a question

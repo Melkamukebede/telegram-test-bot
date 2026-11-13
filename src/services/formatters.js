@@ -22,13 +22,25 @@ export function answerKeyboard(questionId) {
     .text("C", `answer_${questionId}_3`).text("D", `answer_${questionId}_4`);
 }
 
+export function questionKeyboard(questionId) {
+  return new InlineKeyboard().text("👁 View question", `view_question_${questionId}`);
+}
+
 export function revealKeyboard(questionId) {
   return new InlineKeyboard().text("👁 View answer", `view_answer_${questionId}`);
 }
 
 export function formatQuestionPost(q, subject) {
-  const topic = q.topic ? `\n📖 ${escapeHtml(q.topic)}` : "";
-  const hiddenQuestion =
+  const topic = q.topic ? `\n📖 <b>Topic:</b> ${escapeHtml(q.topic)}` : "";
+  return (
+    `<b>❓ ${escapeHtml(String(subject).toUpperCase())} — Question of the Day</b>${topic}\n\n` +
+    `<i>Question hidden to keep the chat clean. Tap below when you are ready to practice.</i>`
+  );
+}
+
+export function formatExpandedQuestion(q, subject) {
+  const topic = q.topic ? `\n📖 <b>Topic:</b> ${escapeHtml(q.topic)}` : "";
+  const question =
     `${escapeHtml(q.question_text)}\n\n` +
     `A) ${escapeHtml(q.option1)}\n` +
     `B) ${escapeHtml(q.option2)}\n` +
@@ -37,8 +49,7 @@ export function formatQuestionPost(q, subject) {
 
   return (
     `<b>❓ ${escapeHtml(String(subject).toUpperCase())} — Question of the Day</b>${topic}\n\n` +
-    `<tg-spoiler>${limitText(hiddenQuestion, 3800)}</tg-spoiler>\n\n` +
-    `<i>Tap the hidden question to open it, then choose your answer.</i>`
+    limitText(question, 3800)
   );
 }
 

@@ -4,7 +4,11 @@ import { getUser, startRegistration } from "../db.js";
 import { questionText, todayAddis } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
-import { formatReveal } from "../services/formatters.js";
+import {
+  answerKeyboard,
+  formatExpandedQuestion,
+  formatReveal,
+} from "../services/formatters.js";
 
 // Edit the message in place; ignore Telegram's "message is not modified" error
 async function show(ctx, text, keyboard) {
@@ -48,6 +52,28 @@ export function registerCallbacks(bot, env) {
     await startRegistration(env, String(ctx.from.id), ctx.from.first_name);
     await ctx.answerCallbackQuery();
     await show(ctx, questionText(0), new InlineKeyboard().text("⬅ Back", "main_menu"));
+  });
+
+  bot.callbackQuery(/^view_question_(\d+)$/, async (ctx) => {
+    const questionId = Number(ctx.match[1]);
+    const q = await env.DB.prepare(
+      "SELECT * FROM daily_questions WHERE id = ? AND is_posted = 1 AND is_revealed = 0"
+    ).bind(questionId).first();
+
+    if (!q) {
+      await ctx.answerCallbackQuery({ text: "This question is no longer available." });
+      return;
+    }
+
+    await ctx.answerCallbackQuery({ text: "Question opened." });
+    try {
+      await ctx.editMessageText(
+        formatExpandedQuestion(q, q.subject || "quiz"),
+        { parse_mode: "HTML", reply_markup: answerKeyboard(q.id) }
+      );
+    } catch (e) {
+      if (!String(e.message).includes("message is not modified")) throw e;
+    }
   });
 
   // A / B / C / D buttons under a posted question
