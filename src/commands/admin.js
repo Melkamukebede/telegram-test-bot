@@ -62,6 +62,28 @@ export function registerAdminCommands(bot, env) {
     await ctx.reply(`Removed ${r.meta.changes} unposted question(s) from batch ${id}.`);
   });
 
+  // Removes all posted questions and their submitted answers
+  bot.command("deleteallposted", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+
+    const { results } = await env.DB.prepare(
+      "SELECT id FROM daily_questions WHERE is_posted = 1"
+    ).all();
+    if (!results.length) {
+      await ctx.reply("There are no posted questions to delete.");
+      return;
+    }
+
+    await env.DB.batch([
+      env.DB.prepare(
+        "DELETE FROM answers WHERE question_id IN (SELECT id FROM daily_questions WHERE is_posted = 1)"
+      ).bind(),
+      env.DB.prepare("DELETE FROM daily_questions WHERE is_posted = 1").bind(),
+    ]);
+
+    await ctx.reply(`Deleted ${results.length} posted question(s) and their answers.`);
+  });
+
   // ================================
   // Daily quota and plan
   // ================================
