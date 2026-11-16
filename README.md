@@ -69,8 +69,8 @@ npm run tail      # Stream Worker logs
 
 The configured cron jobs run in UTC:
 
-- `18:00` on Tuesday, Friday, Saturday, and Sunday — post three mixed questions (9:00 PM Addis Ababa)
-- `04:00` on Monday, Wednesday, Saturday, and Sunday — reveal answers with view buttons (7:00 AM Addis Ababa)
+- `06:00` on Tuesday, Friday, Saturday, and Sunday — post three mixed questions (9:00 AM Addis Ababa)
+- `16:00` on Monday, Wednesday, Saturday, and Sunday — reveal answers with view buttons (7:00 PM Addis Ababa)
 - `13:00` on Monday, Wednesday, and Friday — post the Sinahard promotion
 - `17:00` on Sunday — post the leaderboard
 
