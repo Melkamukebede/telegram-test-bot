@@ -6,7 +6,7 @@ A Telegram learning bot for university students. It runs on **Cloudflare Workers
 
 - Student registration for university, major, city, and semester
 - Three mixed multiple-choice questions on Tuesday, Friday, Saturday, and Sunday
-- Button-collapsed question posts with compact per-question answer reveals
+- Compact daily challenge cards with private per-user quizzes and channel answer reveals
 - Student streaks and a Sunday leaderboard
 - Admin question entry with `/addquestion`
 - Bulk question import from `.txt` files
@@ -73,6 +73,10 @@ The configured cron jobs run in UTC:
 - `16:00` on Monday, Wednesday, Saturday, and Sunday — reveal answers with view buttons (7:00 PM Addis Ababa)
 - `13:00` on Monday, Wednesday, and Friday — post the Sinahard promotion
 - `17:00` on Sunday — post the leaderboard
+
+The daily channel post contains one compact challenge card. Students tap the button
+to answer privately in the bot, so the channel stays easy to scan. Answers and
+explanations are posted together in the channel at the evening reveal time.
 
 ## Student commands
 

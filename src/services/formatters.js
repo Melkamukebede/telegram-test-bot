@@ -38,6 +38,28 @@ export function formatQuestionPost(q, subject) {
   );
 }
 
+export function formatDailyCard(questions) {
+  const subjects = [...new Set(questions.map((q) => escapeHtml(String(q.subject || "Quiz").toUpperCase())))];
+  return (
+    `<b>🎯 Daily Challenge</b>\n\n` +
+    `<b>${questions.length} questions</b> • ${subjects.join(" • ")}\n` +
+    `<i>Test yourself in 2 minutes. Answers and explanations arrive at 7:00 PM.</i>\n\n` +
+    `🔥 Build your streak and see how you rank!`
+  );
+}
+
+export function formatDailyReveal(questions) {
+  const lines = questions.map((q, i) => {
+    const options = [q.option1, q.option2, q.option3, q.option4];
+    const answer = options[q.correct_option - 1];
+    const explanation = q.explanation
+      ? `\n💡 ${escapeHtml(limitText(String(q.explanation), 600))}`
+      : "";
+    return `${i + 1}. <b>${escapeHtml(String(q.subject || "Quiz").toUpperCase())}</b>\n✅ <b>${LETTERS[q.correct_option - 1]}) ${escapeHtml(answer)}</b>${explanation}`;
+  });
+  return `<b>✅ Daily Answers</b>\n\n${limitText(lines.join("\n\n"), 3900)}\n\n<i>Keep practicing and come back tomorrow! 🔥</i>`;
+}
+
 export function formatExpandedQuestion(q, subject) {
   const topic = q.topic ? `\n📖 <b>Topic:</b> ${escapeHtml(q.topic)}` : "";
   const question =

@@ -2,11 +2,8 @@ import { InlineKeyboard } from "grammy";
 import { getDailyTarget } from "../db.js";
 import { todayAddis, PROMO_TEXT, SINAHARD_URL } from "../config.js";
 import {
-  answerKeyboard,
-  formatQuestionPost,
-  formatReveal,
-  questionKeyboard,
-  revealKeyboard,
+  formatDailyCard,
+  formatDailyReveal,
 } from "./formatters.js";
 
 // Posts whatever is still owed for today's plan. The plan's count is the
@@ -86,12 +83,15 @@ export async function postDailyQuestions(env, api, { scheduled = false } = {}) {
   const picked = await pickQuestions(env, scheduled ? "" : plan ? plan.subject : "", need);
   if (!picked.length) return { status: "empty", count: 0, need, left: 0, target };
 
+  const me = await api.getMe();
+  const quizUrl = `https://t.me/${me.username}?start=quiz_${today}`;
+  await api.sendMessage(env.GROUP_CHAT_ID, formatDailyCard(picked), {
+    reply_markup: new InlineKeyboard().url("🎯 Start today's quiz", quizUrl),
+    parse_mode: "HTML",
+  });
+
   let sent = 0;
   for (const q of picked) {
-    await api.sendMessage(env.GROUP_CHAT_ID, formatQuestionPost(q, q.subject || "quiz"), {
-      reply_markup: questionKeyboard(q.id),
-      parse_mode: "HTML",
-    });
     // Marked right after each send, so a crash mid-loop can't re-post a question
     await env.DB.prepare(
       "UPDATE daily_questions SET is_posted = 1, posted_at = ?, session_date = ? WHERE id = ?"
@@ -107,14 +107,20 @@ export async function postReveals(env, api) {
     "SELECT * FROM daily_questions WHERE is_posted = 1 AND is_revealed = 0 ORDER BY posted_at ASC, id ASC"
   ).all();
 
-  let count = 0;
+  const groups = new Map();
   for (const q of results) {
-    await api.sendMessage(env.GROUP_CHAT_ID, formatReveal(q), {
-      reply_markup: revealKeyboard(q.id),
-      parse_mode: "HTML",
-    });
-    await env.DB.prepare("UPDATE daily_questions SET is_revealed = 1 WHERE id = ?").bind(q.id).run();
-    count++;
+    const key = q.session_date || "unknown";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(q);
+  }
+
+  let count = 0;
+  for (const questions of groups.values()) {
+    await api.sendMessage(env.GROUP_CHAT_ID, formatDailyReveal(questions), { parse_mode: "HTML" });
+    for (const q of questions) {
+      await env.DB.prepare("UPDATE daily_questions SET is_revealed = 1 WHERE id = ?").bind(q.id).run();
+      count++;
+    }
   }
   return { count };
 }

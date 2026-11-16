@@ -5,12 +5,17 @@ import { questionText, BRAND, SINAHARD_URL } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
 import { syncMenuFor } from "../services/menu.js";
+import { sendDailyQuiz } from "../services/quiz.js";
 
 const botName = (ctx) => (ctx.me?.username ? `@${ctx.me.username}` : "the bot");
 
 export function registerStudentCommands(bot, env) {
   bot.command("start", async (ctx) => {
     if (!isPrivate(ctx)) return;
+    if (String(ctx.match || "").startsWith("quiz_")) {
+      await sendDailyQuiz(ctx, env, String(ctx.match).slice(5));
+      return;
+    }
     const { text, keyboard } = mainMenuScreen();
     await ctx.reply(`🎓 Welcome to ${BRAND}!\n\n${text}`, { reply_markup: keyboard });
 
