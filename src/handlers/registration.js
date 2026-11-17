@@ -1,6 +1,7 @@
 import { isPrivate } from "../auth.js";
 import { getExamSubjects, getSubjectExamSummary, getUser, upsertUser } from "../db.js";
 import { FLOW, questionText } from "../config.js";
+import { sendReferralInvite } from "../services/referrals.js";
 
 // A number picks from the list (the last one is "Other"); anything else is saved as typed.
 function pick(list, text) {
@@ -77,6 +78,7 @@ export function registerRegistration(bot, env) {
       } else {
         await upsertUser(env, id, { step: null });
         await finishRegistration(ctx, env, id);
+        await sendReferralInvite(ctx, env);
       }
       return;
     }

@@ -1,4 +1,5 @@
 import { InlineKeyboard } from "grammy";
+import { requireExamAccess } from "./referrals.js";
 
 function esc(value) {
   return String(value || "")
@@ -50,6 +51,7 @@ export async function examCatalog(env, telegramId) {
 }
 
 export async function sendExamCatalog(ctx, env) {
+  if (!(await requireExamAccess(ctx, env))) return;
   const exams = await examCatalog(env, String(ctx.from.id));
   if (!exams.length) {
     await ctx.reply("No published exams are available for your selected subjects yet.");
@@ -69,6 +71,10 @@ export async function sendExamCatalog(ctx, env) {
 }
 
 export async function startExam(ctx, env, examId) {
+  if (!(await requireExamAccess(ctx, env))) {
+    await ctx.answerCallbackQuery({ text: "Unlock exam access first.", show_alert: true });
+    return;
+  }
   const telegramId = String(ctx.from.id);
   const exam = await selectedExam(env, telegramId, examId);
   if (!exam) {

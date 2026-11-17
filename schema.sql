@@ -83,6 +83,30 @@ CREATE TABLE IF NOT EXISTS exam_answers (
   FOREIGN KEY (question_id) REFERENCES exam_questions(id)
 );
 
+CREATE TABLE IF NOT EXISTS referrals (
+  referrer_id TEXT NOT NULL,
+  referred_id TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (referrer_id) REFERENCES users(telegram_id)
+);
+
+CREATE TABLE IF NOT EXISTS referral_memberships (
+  referrer_id TEXT NOT NULL,
+  referred_id TEXT NOT NULL,
+  is_member INTEGER NOT NULL DEFAULT 0,
+  checked_at TEXT NOT NULL,
+  PRIMARY KEY (referrer_id, referred_id),
+  FOREIGN KEY (referred_id) REFERENCES referrals(referred_id)
+);
+
+CREATE TABLE IF NOT EXISTS exam_access (
+  telegram_id TEXT PRIMARY KEY,
+  unlocked_at TEXT,
+  verified_invites INTEGER DEFAULT 0,
+  total_referrals INTEGER DEFAULT 0,
+  FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+);
+
 CREATE TABLE IF NOT EXISTS daily_questions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   subject TEXT, grade TEXT, topic TEXT,
@@ -131,3 +155,5 @@ CREATE INDEX IF NOT EXISTS idx_exam_questions_exam ON exam_questions (exam_id, q
 CREATE INDEX IF NOT EXISTS idx_user_exam_subjects_user ON user_exam_subjects (telegram_id, subject_id);
 CREATE INDEX IF NOT EXISTS idx_exam_attempts_user ON exam_attempts (telegram_id, status, started_at);
 CREATE INDEX IF NOT EXISTS idx_exam_answers_attempt ON exam_answers (attempt_id, question_id);
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals (referrer_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_referral_memberships_referrer ON referral_memberships (referrer_id, is_member);

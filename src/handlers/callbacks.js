@@ -5,6 +5,7 @@ import { questionText, todayAddis } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
 import { answerExam, startExam } from "../services/exams.js";
+import { checkReferralUnlock, sendReferralInvite } from "../services/referrals.js";
 import {
   answerKeyboard,
   formatExpandedQuestion,
@@ -21,6 +22,15 @@ async function show(ctx, text, keyboard) {
 }
 
 export function registerCallbacks(bot, env) {
+  bot.callbackQuery("show_referrals", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await sendReferralInvite(ctx, env);
+  });
+
+  bot.callbackQuery("check_referrals", async (ctx) => {
+    await checkReferralUnlock(ctx, env);
+  });
+
   bot.callbackQuery(/^exam_start_(\d+)$/, async (ctx) => {
     await startExam(ctx, env, Number(ctx.match[1]));
   });

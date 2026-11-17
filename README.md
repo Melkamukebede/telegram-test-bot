@@ -13,6 +13,7 @@ A Telegram learning bot for university students. It runs on **Cloudflare Workers
 - Exam catalog imports for freshman midterm and final exams by year
 - Registration subject selection with a personal exam library
 - Private, one-question-at-a-time exam practice with scoring
+- Referral and channel-membership unlock for exam access
 - Daily subject plans and configurable question quotas
 - Pause/resume controls for scheduled posting
 - Sinahard promotional posts
@@ -149,6 +150,11 @@ one question at a time, and receive a final score.
 The `/exams` command now opens a button-based private exam library. Selecting an
 exam creates a resumable attempt; each answer is stored privately and the final
 score is shown after the last question.
+
+Exam access is protected by `/invite` and `/unlock`: a student must bring three
+unique students into the bot, and at least two of those referred students must
+join channel `-1003958927040`. The bot must be an administrator in that channel
+to verify membership.
 
 ## Database
 
