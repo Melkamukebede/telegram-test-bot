@@ -6,6 +6,7 @@ export const STUDENT_COMMANDS = [
   { command: "myinfo", description: "View your saved registration info" },
   { command: "app", description: "Open the Sinahard app" },
   { command: "help", description: "Get help and list of commands" },
+  { command: "manual", description: "Open the full usage manual" },
 ];
 
 export const ADMIN_COMMANDS = [
@@ -49,6 +50,7 @@ export const ADMIN_HELP_LINES = [
   "Send a .txt file as a File to import questions",
   "/pause - stop the 9 AM auto-posting",
   "/resume - start the 9 AM auto-posting again",
+  "/manual - full student and admin usage manual",
 ];
 
 export const OWNER_HELP_LINES = [

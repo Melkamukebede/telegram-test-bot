@@ -1,5 +1,6 @@
 import { requireAdmin } from "../auth.js";
 import { PROMPT_TEMPLATE, SETUP_SECTIONS, DAILY_ROUTINE } from "../web/content.js";
+import { manualMessages } from "../manual.js";
 
 // Packs text blocks into messages under Telegram's 4096-character limit
 function chunk(blocks, max = 3800) {
@@ -32,5 +33,11 @@ export function registerGuide(bot, env, origin) {
     blocks.push("Daily routine\n" + DAILY_ROUTINE.map((s, i) => `${i + 1}. ${s}`).join("\n"));
     for (const msg of chunk(blocks)) await ctx.reply(msg, { link_preview_options: { is_disabled: true } });
     if (origin) await ctx.reply(link().trim());
+  });
+
+  bot.command("manual", async (ctx) => {
+    for (const msg of manualMessages()) {
+      await ctx.reply(msg, { parse_mode: "HTML", link_preview_options: { is_disabled: true } });
+    }
   });
 }

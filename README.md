@@ -89,6 +89,10 @@ explanations are posted together in the channel at the evening reveal time.
 | `/start` | Show the main menu |
 | `/register` | Start or restart registration |
 | `/myinfo` | Show saved registration information |
+| `/exams` | Open the private exam library |
+| `/invite` | Get a personal referral link |
+| `/unlock` | Check referral unlock progress |
+| `/manual` | Open the full usage manual |
 | `/app` | Show the Sinahard app link |
 | `/help` | Show available help |
 
@@ -108,6 +112,22 @@ Admins use these commands in a private chat with the bot:
 - `/testpromo` — post a promotion immediately
 - `/addadmin <telegram_user_id>` and `/removeadmin <telegram_user_id>`
 - `/promptguide` and `/setupsteps` — show question-generation and setup instructions
+
+## Testing checklist
+
+1. Apply the complete `schema.sql` to the deployed D1 database:
+   `npx wrangler d1 execute freshman_hub_db --remote --file=schema.sql`
+2. Make the bot an administrator in channel `-1003958927040`.
+3. Deploy and monitor logs with `npm run deploy` and `npm run tail`.
+4. As a student, send `/start`, `/register`, and choose three subjects.
+5. Send `/invite`; test with three different Telegram accounts using the generated link.
+6. Ask two referred accounts to join the required channel, then send `/unlock`.
+7. Send `/exams`, choose an exam, answer four questions, confirm each answer reveals its explanation, and verify **Next 4 questions** appears only after all four are answered.
+8. Interrupt an attempt and send `/exams` again to verify it resumes at the first unanswered page.
+9. As an admin, upload an exam `.txt` file, then repeat steps 4–8.
+
+Use `/manual` inside Telegram for the same student, admin, upload, testing, and
+troubleshooting instructions in split messages that fit Telegram's message limit.
 
 Send a plain `.txt` file to the bot for bulk import. The expected format is:
 
