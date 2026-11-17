@@ -37,7 +37,7 @@ export const MANUAL_SECTIONS = [
       "1. Create a .txt file with the exam headers below.",
       "2. Number questions consecutively from 1.",
       "3. Include A), B), C), D), Answer:, and optional Explanation: lines.",
-      "4. Send the file to the bot as a Telegram File.",
+      "4. Either paste the complete text directly into the bot or send it as a .txt Telegram File.",
       "5. Re-uploading the same subject, type, and year replaces that exam safely.",
       "Required headers: Subject, ExamType (Midterm or Final), ExamYear.",
       "Optional headers: ExamTitle, DurationMinutes, Topic.",

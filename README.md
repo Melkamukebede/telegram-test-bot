@@ -129,7 +129,9 @@ Admins use these commands in a private chat with the bot:
 Use `/manual` inside Telegram for the same student, admin, upload, testing, and
 troubleshooting instructions in split messages that fit Telegram's message limit.
 
-Send a plain `.txt` file to the bot for bulk import. The expected format is:
+Paste the complete exam text directly into the bot, or send a `.txt` file as a
+Telegram File. The bot automatically detects the exam headers and imports the
+questions. The expected format is:
 
 ```text
 Grade: Senior University

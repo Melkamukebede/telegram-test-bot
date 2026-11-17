@@ -3,6 +3,11 @@ import { todayAddis } from "../config.js";
 import { parseQuestionFile } from "../services/parser.js";
 
 export function registerUpload(bot, env) {
+  const importContent = async (ctx, raw) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    await importParsed(ctx, env, raw);
+  };
+
   bot.on("message:document", async (ctx) => {
     if (!(await requireAdmin(ctx, env))) return;
 
@@ -17,7 +22,21 @@ export function registerUpload(bot, env) {
     const res = await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${file.file_path}`);
     if (!res.ok) { await ctx.reply("Couldn't download that file. Try sending it again."); return; }
 
-    const { meta, questions, warnings } = parseQuestionFile(await res.text());
+    await importParsed(ctx, env, await res.text());
+  });
+
+  bot.on("message:text", async (ctx) => {
+    const raw = ctx.message.text;
+    const looksLikeExam = /Subject:\s*.+/i.test(raw) &&
+      /ExamType:\s*(Midterm|Final)/i.test(raw) &&
+      /ExamYear:\s*\d{4}/i.test(raw) &&
+      /^\s*1\.\s+.+/m.test(raw);
+    if (looksLikeExam) await importContent(ctx, raw);
+  });
+}
+
+async function importParsed(ctx, env, raw) {
+    const { meta, questions, warnings } = parseQuestionFile(raw);
 
     // "TD (Technical Drawing)" -> "td": the stable key used by the exam catalog.
     const subject = meta.subject.split("(")[0].trim().toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -125,5 +144,4 @@ export function registerUpload(bot, env) {
         (warnings.length ? `\n⚠️ Warnings:\n${warnings.slice(0, 5).join("\n")}\n` : "") +
         `\nNext: /setplan ${subject} 3`
     );
-  });
 }
