@@ -1,6 +1,6 @@
 import { isPrivate, roleOf, isAdmin } from "../auth.js";
 import { InlineKeyboard } from "grammy";
-import { getUser, startRegistration } from "../db.js";
+import { getExamSubjects, getUser, startRegistration } from "../db.js";
 import { questionText, todayAddis } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
@@ -51,7 +51,11 @@ export function registerCallbacks(bot, env) {
   bot.callbackQuery("start_register", async (ctx) => {
     await startRegistration(env, String(ctx.from.id), ctx.from.first_name);
     await ctx.answerCallbackQuery();
-    await show(ctx, questionText(0), new InlineKeyboard().text("⬅ Back", "main_menu"));
+    const subjects = await getExamSubjects(env);
+    const text = subjects.length
+      ? questionText(0)
+      : "No exam subjects are available yet. Please try again after the admin uploads the first exam.";
+    await show(ctx, text, new InlineKeyboard().text("⬅ Back", "main_menu"));
   });
 
   bot.callbackQuery(/^view_question_(\d+)$/, async (ctx) => {

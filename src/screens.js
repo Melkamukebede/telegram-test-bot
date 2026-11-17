@@ -1,6 +1,6 @@
 import { ADMIN_HELP_LINES, OWNER_HELP_LINES } from "./commandLists.js";
 import { InlineKeyboard } from "grammy";
-import { getUser } from "./db.js";
+import { getUser, getUserExamSubjects } from "./db.js";
 import { BRAND, SINAHARD_URL } from "./config.js";
 
 export function mainMenuScreen() {
@@ -20,8 +20,9 @@ export async function infoScreen(env, telegramId) {
   if (!registered) keyboard.text("📝 Register Now", "start_register").row();
   keyboard.text("⬅ Back", "main_menu");
 
+  const selected = registered ? await getUserExamSubjects(env, telegramId) : [];
   const text = registered
-    ? `Your Info:\nUniversity: ${user.university}\nMajor: ${user.major}\nCity: ${user.city}\nSemester: ${user.semester}\nStreak: 🔥${user.streak || 0}`
+    ? `Your Info:\nUniversity: ${user.university}\nMajor: ${user.major}\nCity: ${user.city}\nSemester: ${user.semester}\nSubjects: ${selected.map((s) => s.display_name).join(", ") || "Not selected"}\nStreak: 🔥${user.streak || 0}`
     : "You haven't finished registering yet.\nTap below to get started.";
   return { text, keyboard };
 }
@@ -34,6 +35,7 @@ export function helpScreen(role = "student") {
     "/menu - open the button menu\n" +
     "/register - start registration\n" +
     "/myinfo - view your saved info\n" +
+    "/exams - view your exam library\n" +
     "/app - open the Sinahard app\n" +
     "/leaderboard - show the leaderboard in the channel";
 

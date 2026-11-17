@@ -1,6 +1,6 @@
 import { InlineKeyboard } from "grammy";
 import { isPrivate, isGroup, isAdmin, roleOf } from "../auth.js";
-import { startRegistration } from "../db.js";
+import { getSubjectExamSummary, startRegistration } from "../db.js";
 import { questionText, BRAND, SINAHARD_URL } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
@@ -43,6 +43,19 @@ export function registerStudentCommands(bot, env) {
     if (!isPrivate(ctx)) return;
     const { text } = await infoScreen(env, String(ctx.from.id));
     await ctx.reply(text);
+  });
+
+  bot.command("exams", async (ctx) => {
+    if (!isPrivate(ctx)) return;
+    const exams = await getSubjectExamSummary(env, String(ctx.from.id));
+    if (!exams.length) {
+      await ctx.reply("No exam library is available yet. Finish registration and select your three subjects.");
+      return;
+    }
+    const lines = exams.map(
+      (e) => `• ${e.display_name} — ${e.exam_type.toUpperCase()} ${e.exam_year}\n  ${e.question_count} questions • ${e.duration_minutes} minutes`
+    );
+    await ctx.reply("📚 Your exam library\n\n" + lines.join("\n\n"));
   });
 
   // Works everywhere, including groups

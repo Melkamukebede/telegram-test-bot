@@ -11,6 +11,7 @@ A Telegram learning bot for university students. It runs on **Cloudflare Workers
 - Admin question entry with `/addquestion`
 - Bulk question import from `.txt` files
 - Exam catalog imports for freshman midterm and final exams by year
+- Registration subject selection with a personal exam library
 - Daily subject plans and configurable question quotas
 - Pause/resume controls for scheduled posting
 - Sinahard promotional posts
@@ -138,6 +139,10 @@ Topic: Mechanics
 
 `ExamType` must be `Midterm` or `Final`. Re-uploading the same subject, exam type,
 and year replaces that exam's questions, making corrections safe and repeatable.
+
+After the university, major, city, and semester questions, each student selects
+three exam subjects. The `/exams` command then lists the available midterm and
+final exams for those subjects.
 
 ## Database
 
