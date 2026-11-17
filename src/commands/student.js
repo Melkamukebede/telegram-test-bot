@@ -1,11 +1,12 @@
 import { InlineKeyboard } from "grammy";
 import { isPrivate, isGroup, isAdmin, roleOf } from "../auth.js";
-import { getSubjectExamSummary, startRegistration } from "../db.js";
+import { startRegistration } from "../db.js";
 import { questionText, BRAND, SINAHARD_URL } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
 import { syncMenuFor } from "../services/menu.js";
 import { sendDailyQuiz } from "../services/quiz.js";
+import { sendExamCatalog } from "../services/exams.js";
 
 const botName = (ctx) => (ctx.me?.username ? `@${ctx.me.username}` : "the bot");
 
@@ -47,15 +48,7 @@ export function registerStudentCommands(bot, env) {
 
   bot.command("exams", async (ctx) => {
     if (!isPrivate(ctx)) return;
-    const exams = await getSubjectExamSummary(env, String(ctx.from.id));
-    if (!exams.length) {
-      await ctx.reply("No exam library is available yet. Finish registration and select your three subjects.");
-      return;
-    }
-    const lines = exams.map(
-      (e) => `• ${e.display_name} — ${e.exam_type.toUpperCase()} ${e.exam_year}\n  ${e.question_count} questions • ${e.duration_minutes} minutes`
-    );
-    await ctx.reply("📚 Your exam library\n\n" + lines.join("\n\n"));
+    await sendExamCatalog(ctx, env);
   });
 
   // Works everywhere, including groups

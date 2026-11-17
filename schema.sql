@@ -59,6 +59,30 @@ CREATE TABLE IF NOT EXISTS user_exam_subjects (
   FOREIGN KEY (subject_id) REFERENCES exam_subjects(id)
 );
 
+CREATE TABLE IF NOT EXISTS exam_attempts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  telegram_id TEXT NOT NULL,
+  exam_id INTEGER NOT NULL,
+  current_index INTEGER DEFAULT 0,
+  score INTEGER DEFAULT 0,
+  total_questions INTEGER NOT NULL,
+  started_at TEXT NOT NULL,
+  completed_at TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+  FOREIGN KEY (exam_id) REFERENCES exams(id)
+);
+
+CREATE TABLE IF NOT EXISTS exam_answers (
+  attempt_id INTEGER NOT NULL,
+  question_id INTEGER NOT NULL,
+  selected_option INTEGER NOT NULL CHECK (selected_option BETWEEN 1 AND 4),
+  is_correct INTEGER NOT NULL,
+  answered_at TEXT NOT NULL,
+  PRIMARY KEY (attempt_id, question_id),
+  FOREIGN KEY (attempt_id) REFERENCES exam_attempts(id),
+  FOREIGN KEY (question_id) REFERENCES exam_questions(id)
+);
+
 CREATE TABLE IF NOT EXISTS daily_questions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   subject TEXT, grade TEXT, topic TEXT,
@@ -105,3 +129,5 @@ CREATE INDEX IF NOT EXISTS idx_questions_session ON daily_questions (session_dat
 CREATE INDEX IF NOT EXISTS idx_exams_catalog ON exams (subject_id, exam_type, exam_year, is_published);
 CREATE INDEX IF NOT EXISTS idx_exam_questions_exam ON exam_questions (exam_id, question_number);
 CREATE INDEX IF NOT EXISTS idx_user_exam_subjects_user ON user_exam_subjects (telegram_id, subject_id);
+CREATE INDEX IF NOT EXISTS idx_exam_attempts_user ON exam_attempts (telegram_id, status, started_at);
+CREATE INDEX IF NOT EXISTS idx_exam_answers_attempt ON exam_answers (attempt_id, question_id);

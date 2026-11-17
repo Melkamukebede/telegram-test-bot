@@ -4,6 +4,7 @@ import { getExamSubjects, getUser, startRegistration } from "../db.js";
 import { questionText, todayAddis } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
+import { answerExam, startExam } from "../services/exams.js";
 import {
   answerKeyboard,
   formatExpandedQuestion,
@@ -20,6 +21,14 @@ async function show(ctx, text, keyboard) {
 }
 
 export function registerCallbacks(bot, env) {
+  bot.callbackQuery(/^exam_start_(\d+)$/, async (ctx) => {
+    await startExam(ctx, env, Number(ctx.match[1]));
+  });
+
+  bot.callbackQuery(/^exam_answer_(\d+)_(\d+)_([1-4])$/, async (ctx) => {
+    await answerExam(ctx, env, Number(ctx.match[1]), Number(ctx.match[2]), Number(ctx.match[3]));
+  });
+
   bot.callbackQuery("main_menu", async (ctx) => {
     const { text, keyboard } = mainMenuScreen();
     await ctx.answerCallbackQuery();
