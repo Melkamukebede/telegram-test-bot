@@ -4,7 +4,7 @@ import { getExamSubjects, getUser, startRegistration } from "../db.js";
 import { questionText, todayAddis } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
-import { answerExam, startExam } from "../services/exams.js";
+import { answerExam, nextExamPage, startExam } from "../services/exams.js";
 import { checkReferralUnlock, sendReferralInvite } from "../services/referrals.js";
 import {
   answerKeyboard,
@@ -35,8 +35,19 @@ export function registerCallbacks(bot, env) {
     await startExam(ctx, env, Number(ctx.match[1]));
   });
 
-  bot.callbackQuery(/^exam_answer_(\d+)_(\d+)_([1-4])$/, async (ctx) => {
-    await answerExam(ctx, env, Number(ctx.match[1]), Number(ctx.match[2]), Number(ctx.match[3]));
+  bot.callbackQuery(/^exam_answer_(\d+)_(\d+)_([1-4])_(\d+)$/, async (ctx) => {
+    await answerExam(
+      ctx, env, Number(ctx.match[1]), Number(ctx.match[2]),
+      Number(ctx.match[3]), Number(ctx.match[4])
+    );
+  });
+
+  bot.callbackQuery(/^exam_page_(\d+)_(\d+)$/, async (ctx) => {
+    await nextExamPage(ctx, env, Number(ctx.match[1]), Number(ctx.match[2]));
+  });
+
+  bot.callbackQuery(/^noop_exam$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
   });
 
   bot.callbackQuery("main_menu", async (ctx) => {

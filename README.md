@@ -148,7 +148,8 @@ final exams for those subjects. Students can select an exam, answer privately
 one question at a time, and receive a final score.
 
 The `/exams` command now opens a button-based private exam library. Selecting an
-exam creates a resumable attempt; each answer is stored privately and the final
+exam creates a resumable attempt with four questions per page. Each question
+keeps its answer and explanation hidden until the student chooses A-D; the final
 score is shown after the last question.
 
 Exam access is protected by `/invite` and `/unlock`: a student must bring three
