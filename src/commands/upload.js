@@ -19,7 +19,7 @@ export function registerUpload(bot, env) {
 
     const { meta, questions, warnings } = parseQuestionFile(await res.text());
 
-    // "TD (Technical Drawing)" -> "td": the key you use in /setplan
+    // "TD (Technical Drawing)" -> "td": the stable key used by the exam catalog.
     const subject = meta.subject.split("(")[0].trim().toLowerCase().replace(/[^a-z0-9]/g, "");
     if (!subject) { await ctx.reply("I couldn't find a 'Subject:' line in the file header."); return; }
     if (!questions.length) {
@@ -27,7 +27,68 @@ export function registerUpload(bot, env) {
       return;
     }
 
-    // Skip questions already stored, so re-uploading a file creates no duplicates
+    const examType = meta.exam_type.toLowerCase();
+    const examYear = Number(meta.exam_year);
+    if (examType || meta.exam_year || meta.exam_title) {
+      if (!["midterm", "final"].includes(examType)) {
+        await ctx.reply("Exam uploads need `ExamType: Midterm` or `ExamType: Final`.");
+        return;
+      }
+      if (!Number.isInteger(examYear) || examYear < 2000 || examYear > 2100) {
+        await ctx.reply("Exam uploads need a valid `ExamYear:` between 2000 and 2100.");
+        return;
+      }
+
+      const displayName = meta.subject.includes("(")
+        ? meta.subject.slice(meta.subject.indexOf("(") + 1).replace(/\).*$/, "").trim()
+        : meta.subject.split("(")[0].trim();
+      await env.DB.prepare(
+        "INSERT INTO exam_subjects (command, display_name, created_at) VALUES (?, ?, ?) " +
+        "ON CONFLICT(command) DO UPDATE SET display_name = excluded.display_name"
+      ).bind(subject, displayName || subject.toUpperCase(), new Date().toISOString()).run();
+      const catalogSubject = await env.DB.prepare(
+        "SELECT id FROM exam_subjects WHERE command = ?"
+      ).bind(subject).first();
+      const title = meta.exam_title || `${displayName || subject.toUpperCase()} ${examYear} ${examType}`;
+      const duration = Number(meta.duration_minutes);
+      await env.DB.prepare(
+        `INSERT INTO exams
+         (subject_id, exam_type, exam_year, title, duration_minutes, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(subject_id, exam_type, exam_year) DO UPDATE SET
+           title = excluded.title, duration_minutes = excluded.duration_minutes`
+      ).bind(
+        catalogSubject.id, examType, examYear, title,
+        Number.isInteger(duration) && duration > 0 ? duration : 45,
+        new Date().toISOString()
+      ).run();
+      const exam = await env.DB.prepare(
+        "SELECT id FROM exams WHERE subject_id = ? AND exam_type = ? AND exam_year = ?"
+      ).bind(catalogSubject.id, examType, examYear).first();
+      await env.DB.prepare("DELETE FROM exam_questions WHERE exam_id = ?").bind(exam.id).run();
+      const statements = questions.map((q, index) => env.DB.prepare(
+        `INSERT INTO exam_questions
+         (exam_id, question_number, topic, question_text, option1, option2, option3, option4,
+          correct_option, explanation, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        exam.id, index + 1, meta.topic, q.text,
+        q.options[0], q.options[1], q.options[2], q.options[3],
+        q.correct, q.explanation, new Date().toISOString()
+      ));
+      for (let i = 0; i < statements.length; i += 50) {
+        await env.DB.batch(statements.slice(i, i + 50));
+      }
+      await ctx.reply(
+        `✅ Imported exam: ${title}\n\n` +
+        `Subject key: ${subject}\nType: ${examType}\nYear: ${examYear}\n` +
+        `Questions: ${questions.length}\nDuration: ${Number.isInteger(duration) && duration > 0 ? duration : 45} minutes\n` +
+        (warnings.length ? `\n⚠️ Warnings:\n${warnings.slice(0, 5).join("\n")}\n` : "")
+      );
+      return;
+    }
+
+    // Skip daily questions already stored, so re-uploading a file creates no duplicates.
     const existing = await env.DB.prepare("SELECT question_text FROM daily_questions WHERE subject = ?")
       .bind(subject).all();
     const seen = new Set(existing.results.map((r) => r.question_text));

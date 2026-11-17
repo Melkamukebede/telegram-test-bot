@@ -14,6 +14,43 @@ CREATE TABLE IF NOT EXISTS subjects (
   drive_link TEXT
 );
 
+CREATE TABLE IF NOT EXISTS exam_subjects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  command TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS exams (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subject_id INTEGER NOT NULL,
+  exam_type TEXT NOT NULL CHECK (exam_type IN ('midterm', 'final')),
+  exam_year INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  duration_minutes INTEGER DEFAULT 45,
+  is_published INTEGER DEFAULT 1,
+  created_at TEXT NOT NULL,
+  UNIQUE(subject_id, exam_type, exam_year),
+  FOREIGN KEY (subject_id) REFERENCES exam_subjects(id)
+);
+
+CREATE TABLE IF NOT EXISTS exam_questions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  exam_id INTEGER NOT NULL,
+  question_number INTEGER NOT NULL,
+  topic TEXT,
+  question_text TEXT NOT NULL,
+  option1 TEXT NOT NULL,
+  option2 TEXT NOT NULL,
+  option3 TEXT NOT NULL,
+  option4 TEXT NOT NULL,
+  correct_option INTEGER NOT NULL CHECK (correct_option BETWEEN 1 AND 4),
+  explanation TEXT,
+  created_at TEXT NOT NULL,
+  UNIQUE(exam_id, question_number),
+  FOREIGN KEY (exam_id) REFERENCES exams(id)
+);
+
 CREATE TABLE IF NOT EXISTS daily_questions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   subject TEXT, grade TEXT, topic TEXT,
@@ -57,3 +94,5 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE INDEX IF NOT EXISTS idx_questions_queue ON daily_questions (subject, is_posted);
 CREATE INDEX IF NOT EXISTS idx_questions_session ON daily_questions (session_date, is_posted, is_revealed);
+CREATE INDEX IF NOT EXISTS idx_exams_catalog ON exams (subject_id, exam_type, exam_year, is_published);
+CREATE INDEX IF NOT EXISTS idx_exam_questions_exam ON exam_questions (exam_id, question_number);

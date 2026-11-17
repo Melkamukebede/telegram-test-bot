@@ -10,6 +10,7 @@ A Telegram learning bot for university students. It runs on **Cloudflare Workers
 - Student streaks and a Sunday leaderboard
 - Admin question entry with `/addquestion`
 - Bulk question import from `.txt` files
+- Exam catalog imports for freshman midterm and final exams by year
 - Daily subject plans and configurable question quotas
 - Pause/resume controls for scheduled posting
 - Sinahard promotional posts
@@ -123,6 +124,20 @@ Topic: Multiview Drawing
 ```
 
 Questions must be numbered consecutively and contain exactly four options labeled `A)` through `D)` plus an `Answer:` line.
+
+Exam catalog files use the same question format with these additional headers:
+
+```text
+Subject: Physics (Freshman Physics)
+ExamType: Midterm
+ExamYear: 2024
+ExamTitle: Freshman Physics Midterm 2024
+DurationMinutes: 45
+Topic: Mechanics
+```
+
+`ExamType` must be `Midterm` or `Final`. Re-uploading the same subject, exam type,
+and year replaces that exam's questions, making corrections safe and repeatable.
 
 ## Database
 

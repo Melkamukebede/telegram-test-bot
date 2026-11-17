@@ -7,7 +7,10 @@ export function parseQuestionFile(raw) {
     .split("\n")
     .map((l) => l.replace(/^`+|`+$/g, "")); // strip backticks left over from copy/paste
 
-  const meta = { grade: "", subject: "", topic: "" };
+  const meta = {
+    grade: "", subject: "", topic: "", exam_type: "", exam_year: "",
+    exam_title: "", duration_minutes: "",
+  };
   const questions = [];
   const warnings = [];
   let current = null;
@@ -48,8 +51,19 @@ export function parseQuestionFile(raw) {
     }
 
     if (mode === "header") {
-      const m = t.match(/^(Grade|Subject|Topic):\s*(.+)$/i);
-      if (m) meta[m[1].toLowerCase()] = m[2].trim();
+      const m = t.match(/^(Grade|Subject|Topic|ExamType|ExamYear|ExamTitle|DurationMinutes):\s*(.+)$/i);
+      if (m) {
+        const key = {
+          grade: "grade",
+          subject: "subject",
+          topic: "topic",
+          examtype: "exam_type",
+          examyear: "exam_year",
+          examtitle: "exam_title",
+          durationminutes: "duration_minutes",
+        }[m[1].toLowerCase()];
+        meta[key] = m[2].trim();
+      }
       continue;
     }
 
