@@ -171,8 +171,10 @@ one question at a time, and receive a final score.
 
 The `/exams` command now opens a button-based private exam library. Selecting an
 exam creates a resumable attempt with four questions per page. Each question
-keeps its answer and explanation hidden until the student chooses A-D; the final
-score is shown after the last question.
+keeps its answer and explanation hidden until the student chooses A-D, then
+immediately reveals the student's choice, the correct answer, and explanation.
+Completed exams are hidden from `/exams`; active exams appear with a Resume label.
+The final score is shown after the last question.
 
 Exam access is protected by `/invite` and `/unlock`: a student must bring three
 unique students into the bot, and at least two of those referred students must

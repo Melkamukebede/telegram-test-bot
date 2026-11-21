@@ -16,7 +16,7 @@ export const MANUAL_SECTIONS = [
       "• Send /exams and choose a published midterm or final exam.",
       "• Four questions appear on each page.",
       "• Choose A, B, C, or D under each question.",
-      "• The selected question then reveals its answer and explanation.",
+      "• The selected question immediately reveals your choice, correct answer, and explanation.",
       "• Answer all four questions to unlock the next page.",
       "• Your attempt is saved, so /exams can resume an unfinished exam.",
       "• Your final score and percentage appear after the last question.",

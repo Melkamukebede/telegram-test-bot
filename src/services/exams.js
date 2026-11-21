@@ -10,11 +10,14 @@ function esc(value) {
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function answerButtons(attemptId, questionId, page, answered) {
+function answerButtons(attemptId, questionId, page, answer) {
   const keyboard = new InlineKeyboard();
   for (let option = 1; option <= 4; option++) {
+    const selected = answer?.selected_option === option;
     keyboard.text(
-      answered ? `${LETTERS[option - 1]} ✓` : LETTERS[option - 1],
+      answer
+        ? `${LETTERS[option - 1]}${selected ? " ✓" : ""}`
+        : LETTERS[option - 1],
       `exam_answer_${attemptId}_${questionId}_${option}_${page}`
     );
     if (option === 2) keyboard.row();
@@ -30,6 +33,7 @@ function renderQuestion(q, answer, index) {
 
   const correct = [q.option1, q.option2, q.option3, q.option4][q.correct_option - 1];
   text += `\n\n${answer.is_correct ? "✅ Correct" : "❌ Incorrect"}` +
+    `\n<b>Your choice:</b> ${LETTERS[answer.selected_option - 1]})` +
     `\n<b>Answer:</b> ${LETTERS[q.correct_option - 1]}) ${esc(correct)}`;
   if (q.explanation) text += `\n<b>Explanation:</b> ${esc(q.explanation)}`;
   return text;
@@ -48,15 +52,27 @@ export async function examCatalog(env, telegramId) {
   const { results } = await env.DB.prepare(
     `SELECT e.id, e.title, e.exam_type, e.exam_year, e.duration_minutes,
             s.display_name, COUNT(q.id) AS question_count
+            , EXISTS(
+                SELECT 1 FROM exam_attempts active_attempt
+                WHERE active_attempt.exam_id = e.id
+                  AND active_attempt.telegram_id = ?
+                  AND active_attempt.status = 'active'
+              ) AS is_active
      FROM exams e
      JOIN exam_subjects s ON s.id = e.subject_id
      JOIN user_exam_subjects us ON us.subject_id = s.id AND us.telegram_id = ?
      LEFT JOIN exam_questions q ON q.exam_id = e.id
      WHERE e.is_published = 1
+       AND NOT EXISTS(
+         SELECT 1 FROM exam_attempts completed_attempt
+         WHERE completed_attempt.exam_id = e.id
+           AND completed_attempt.telegram_id = ?
+           AND completed_attempt.status = 'completed'
+       )
      GROUP BY e.id
      HAVING COUNT(q.id) > 0
-     ORDER BY s.display_name, e.exam_year DESC, e.exam_type`
-  ).bind(telegramId).all();
+     ORDER BY is_active DESC, s.display_name, e.exam_year DESC, e.exam_type`
+  ).bind(telegramId, telegramId, telegramId).all();
   return results || [];
 }
 
@@ -64,13 +80,13 @@ export async function sendExamCatalog(ctx, env) {
   if (!(await requireExamAccess(ctx, env))) return;
   const exams = await examCatalog(env, String(ctx.from.id));
   if (!exams.length) {
-    await ctx.reply("No published exams are available for your selected subjects yet.");
+    await ctx.reply("🎉 You have completed all available exams for your subjects.\n\nNew exams will appear here when an admin adds them.");
     return;
   }
   const keyboard = new InlineKeyboard();
   for (const exam of exams) {
     keyboard.text(
-      `${exam.display_name} • ${exam.exam_type.toUpperCase()} ${exam.exam_year}`,
+      `${exam.is_active ? "▶️ Resume" : "📝"} ${exam.display_name} • ${exam.exam_type.toUpperCase()} ${exam.exam_year}`,
       `exam_start_${exam.id}`
     ).row();
   }
@@ -105,7 +121,7 @@ async function getPage(env, attempt, page) {
   const keyboard = new InlineKeyboard();
   questions.forEach((q, i) => {
     const answer = answerMap.get(q.id);
-    const buttons = answerButtons(attempt.id, q.id, page, Boolean(answer));
+    const buttons = answerButtons(attempt.id, q.id, page, answer);
     for (const row of buttons.inline_keyboard) keyboard.inline_keyboard.push(row);
     if (i < questions.length - 1) keyboard.row();
   });
