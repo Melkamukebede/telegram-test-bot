@@ -70,7 +70,7 @@ export const FORMAT_RULES = [
   ["1. Question text", "A new question starts at the next number in order (1, 2, 3...). A gap in numbering breaks the split."],
   ["A) B) C) D)", "Exactly four options, one line each. They become the A B C D buttons."],
   ["Answer: B", "One letter only. Stored as the correct option and used to score each tap."],
-  ["Explanation:", "Everything after it, up to the next question number, is posted with the answer at 2 PM. Bold markers (**) are removed automatically."],
+  ["Explanation:", "Everything after it, up to the next question number, is posted with the answer at 7 PM. Bold markers (**) are removed automatically."],
 ];
 
 export const SETUP_SECTIONS = [
@@ -89,7 +89,7 @@ export const DAILY_ROUTINE = [
   "Fill in the AI prompt (grade, subject key, topic, count) and run it in your AI tool.",
   "Save the output as a .txt file and send it to the bot as a File. Check the import summary.",
   "Send /queue to confirm the questions are waiting.",
-  "Before 8 AM send /setplan <subject> <count>. The count is the total for that day.",
-  "The bot posts at 8 AM and reveals answers with explanations at 2 PM. The leaderboard posts on Sunday at 6 PM.",
-  "If the plan is missing or the queue is empty at 8 AM, the owner gets a warning message.",
+  "Before 9 AM send /setplan <subject> <count>. The count is the total for that day.",
+  "The bot posts at 9 AM and reveals answers with explanations at 7 PM. The leaderboard posts on Sunday at 8 PM.",
+  "If the plan is missing or the queue is empty at 9 AM, the owner gets a warning message.",
 ];

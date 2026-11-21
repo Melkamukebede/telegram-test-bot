@@ -228,6 +228,7 @@ export async function answerExam(ctx, env, attemptId, questionId, selected, page
     "SELECT COUNT(*) AS count FROM exam_answers WHERE attempt_id = ?"
   ).bind(attemptId).first();
   if (Number(count.count) >= attempt.total_questions) {
+    await sendPage(ctx, env, attemptId, page, true);
     await finishExam(ctx, env, attemptId);
     return;
   }

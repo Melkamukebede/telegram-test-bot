@@ -157,3 +157,11 @@ CREATE INDEX IF NOT EXISTS idx_exam_attempts_user ON exam_attempts (telegram_id,
 CREATE INDEX IF NOT EXISTS idx_exam_answers_attempt ON exam_answers (attempt_id, question_id);
 CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals (referrer_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_referral_memberships_referrer ON referral_memberships (referrer_id, is_member);
+
+INSERT INTO settings(key, value)
+VALUES ('paused', '0')
+ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+
+INSERT INTO settings(key, value)
+VALUES ('daily_target', '4')
+ON CONFLICT(key) DO UPDATE SET value = excluded.value;

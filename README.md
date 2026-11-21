@@ -12,7 +12,7 @@ A Telegram learning bot for university students. It runs on **Cloudflare Workers
 - Bulk question import from `.txt` files
 - Exam catalog imports for freshman midterm and final exams by year
 - Registration subject selection with a personal exam library
-- Private, one-question-at-a-time exam practice with scoring
+- Private four-question-per-page exam practice with scoring
 - Referral and channel-membership unlock for exam access
 - Daily subject plans and configurable question quotas
 - Pause/resume controls for scheduled posting
