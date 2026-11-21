@@ -4,7 +4,14 @@ import { getUser, startRegistration } from "../db.js";
 import { questionText, todayAddis } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
-import { answerExam, nextExamPage, startExam } from "../services/exams.js";
+import {
+  answerExam,
+  nextExamPage,
+  sendExamCatalog,
+  sendExamSubjectCatalog,
+  sendExamTypeCatalog,
+  startExam,
+} from "../services/exams.js";
 import {
   answerKeyboard,
   formatExpandedQuestion,
@@ -29,6 +36,23 @@ export function registerCallbacks(bot, env) {
 
   bot.callbackQuery("check_referrals", async (ctx) => {
     await checkReferralUnlock(ctx, env);
+  });
+
+  bot.callbackQuery(/^exam_type_(midterm|final)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await sendExamTypeCatalog(ctx, env, ctx.match[1]);
+  });
+
+  bot.callbackQuery("exam_back_types", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await sendExamCatalog(ctx, env);
+  });
+
+  bot.callbackQuery(/^exam_subject_(midterm|final)_(.+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    let displayName = ctx.match[2];
+    try { displayName = decodeURIComponent(displayName); } catch {}
+    await sendExamSubjectCatalog(ctx, env, ctx.match[1], displayName);
   });
 
   bot.callbackQuery(/^exam_start_(\d+)$/, async (ctx) => {

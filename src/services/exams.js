@@ -98,6 +98,50 @@ export async function sendExamCatalog(ctx, env) {
     return;
   }
   const keyboard = new InlineKeyboard();
+  const midtermCount = exams.filter((exam) => exam.exam_type === "midterm").length;
+  const finalCount = exams.filter((exam) => exam.exam_type === "final").length;
+  if (midtermCount) keyboard.text(`📝 Midterm (${midtermCount})`, "exam_type_midterm").row();
+  if (finalCount) keyboard.text(`📘 Final (${finalCount})`, "exam_type_final").row();
+  const access = await examAccessState(env, telegramId);
+  if (access.locked) keyboard.text("🎓 Unlock exam practice", "show_referrals").row();
+  await ctx.reply(
+    "📚 <b>Choose exam type</b>\n\nSelect Midterm or Final to see available subjects.",
+    { parse_mode: "HTML", reply_markup: keyboard }
+  );
+}
+
+export async function sendExamTypeCatalog(ctx, env, examType) {
+  const telegramId = String(ctx.from.id);
+  const allExams = await examCatalog(env, telegramId);
+  const exams = allExams.filter((exam) => exam.exam_type === examType);
+  if (!exams.length) {
+    await ctx.reply(`📚 No ${examType} exams are available yet.`);
+    return;
+  }
+  const keyboard = new InlineKeyboard();
+  const subjects = [...new Map(exams.map((exam) => [exam.display_name, exam])).values()];
+  for (const subject of subjects) {
+    keyboard.text(
+      `📚 ${subject.display_name}`,
+      `exam_subject_${examType}_${encodeURIComponent(subject.display_name)}`
+    ).row();
+  }
+  keyboard.text("⬅ Back", "exam_back_types");
+  await ctx.reply(
+    `📚 <b>${examType === "midterm" ? "Midterm" : "Final"} subjects</b>\n\nChoose a subject:`,
+    { parse_mode: "HTML", reply_markup: keyboard }
+  );
+}
+
+export async function sendExamSubjectCatalog(ctx, env, examType, displayName) {
+  const telegramId = String(ctx.from.id);
+  const exams = (await examCatalog(env, telegramId))
+    .filter((exam) => exam.exam_type === examType && exam.display_name === displayName);
+  if (!exams.length) {
+    await ctx.reply("📚 No exams are available for this subject.");
+    return;
+  }
+  const keyboard = new InlineKeyboard();
   for (const exam of exams) {
     keyboard.text(
       `${exam.is_locked ? "🔒" : exam.is_active ? "▶️ Resume" : "📝"} ${exam.display_name} • ${exam.exam_type.toUpperCase()} ${exam.exam_year}`,
@@ -108,8 +152,9 @@ export async function sendExamCatalog(ctx, env) {
   if (access.locked) {
     keyboard.row().text("🎓 Unlock exam practice", "show_referrals");
   }
+  keyboard.row().text("⬅ Back", `exam_type_${examType}`);
   await ctx.reply(
-    "📚 <b>Choose an exam to practice</b>\n\nEach page contains four questions. Answers and explanations appear after each choice.",
+    `📚 <b>${esc(displayName)} • ${examType === "midterm" ? "Midterm" : "Final"}</b>\n\nChoose an exam year:`,
     { parse_mode: "HTML", reply_markup: keyboard }
   );
 }
