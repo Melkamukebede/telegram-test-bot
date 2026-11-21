@@ -90,6 +90,8 @@ explanations are posted together in the channel at the evening reveal time.
 | `/register` | Start or restart registration |
 | `/myinfo` | Show saved registration information |
 | `/exams` | Open the private exam library |
+| `/invite` | Get the personal exam unlock referral link |
+| `/unlock` | Check exam unlock progress |
 | `/manual` | Open the full usage manual |
 | `/app` | Show the Sinahard app link |
 | `/help` | Show available help |

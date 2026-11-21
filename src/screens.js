@@ -35,6 +35,8 @@ export function helpScreen(role = "student") {
     "/register - start registration\n" +
     "/myinfo - view your saved info\n" +
     "/exams - view your exam library\n" +
+      "/invite - get the exam unlock referral link\n" +
+      "/unlock - check referral and channel progress\n" +
     "/manual - open the full usage manual\n" +
     "/app - open the Sinahard app\n" +
     "/leaderboard - show the leaderboard in the channel";

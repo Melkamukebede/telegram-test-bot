@@ -5,6 +5,8 @@ export const STUDENT_COMMANDS = [
   { command: "menu", description: "Open the main menu" },
   { command: "myinfo", description: "View your saved registration info" },
   { command: "exams", description: "Practice midterm and final exams" },
+  { command: "invite", description: "Get the exam unlock referral link" },
+  { command: "unlock", description: "Check exam unlock progress" },
   { command: "app", description: "Open the Sinahard app" },
   { command: "help", description: "Get help and list of commands" },
   { command: "manual", description: "Open the full usage manual" },

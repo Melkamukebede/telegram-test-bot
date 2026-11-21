@@ -5,6 +5,7 @@ export const MANUAL_SECTIONS = [
       "1. Send /start, then /register.",
       "2. Answer university, major, city, and semester questions.",
       "3. Send /exams to view every available published exam.",
+      "4. After three exams, use /invite and /unlock to unlock the rest.",
     ],
   },
   {
@@ -57,6 +58,7 @@ export const MANUAL_SECTIONS = [
     title: "⚙️ Troubleshooting",
     lines: [
       "• If no exams appear, an admin must upload and publish at least one exam.",
+      "• After completing three exams, use /invite, share the personal link, then /unlock.",
       "• If scheduled posts do not run, check Cloudflare deployment, cron triggers, D1 migrations, and /tail logs.",
     ],
   },

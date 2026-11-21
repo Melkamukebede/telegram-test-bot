@@ -7,13 +7,18 @@ import { postLeaderboard } from "../services/scheduler.js";
 import { syncMenuFor } from "../services/menu.js";
 import { sendDailyQuiz } from "../services/quiz.js";
 import { sendExamCatalog } from "../services/exams.js";
+import { checkReferralUnlock, recordReferral, sendReferralInvite } from "../services/referrals.js";
 
 const botName = (ctx) => (ctx.me?.username ? `@${ctx.me.username}` : "the bot");
 
 export function registerStudentCommands(bot, env) {
   bot.command("start", async (ctx) => {
     if (!isPrivate(ctx)) return;
-    if (String(ctx.match || "").startsWith("quiz_")) {
+    const payload = String(ctx.match || "");
+    if (payload.startsWith("ref_")) {
+      await recordReferral(env, payload.slice(4), String(ctx.from.id));
+    }
+    if (payload.startsWith("quiz_")) {
       await sendDailyQuiz(ctx, env, String(ctx.match).slice(5));
       return;
     }
@@ -49,6 +54,16 @@ export function registerStudentCommands(bot, env) {
   bot.command("exams", async (ctx) => {
     if (!isPrivate(ctx)) return;
     await sendExamCatalog(ctx, env);
+  });
+
+  bot.command("invite", async (ctx) => {
+    if (!isPrivate(ctx)) return;
+    await sendReferralInvite(ctx, env);
+  });
+
+  bot.command("unlock", async (ctx) => {
+    if (!isPrivate(ctx)) return;
+    await checkReferralUnlock(ctx, env);
   });
 
   // Works everywhere, including groups
