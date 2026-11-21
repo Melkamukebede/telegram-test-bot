@@ -78,9 +78,38 @@ export async function examCatalog(env, telegramId) {
 
 export async function sendExamCatalog(ctx, env) {
   if (!(await requireExamAccess(ctx, env))) return;
-  const exams = await examCatalog(env, String(ctx.from.id));
+  const telegramId = String(ctx.from.id);
+  const exams = await examCatalog(env, telegramId);
   if (!exams.length) {
-    await ctx.reply("🎉 You have completed all available exams for your subjects.\n\nNew exams will appear here when an admin adds them.");
+    const selected = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM user_exam_subjects WHERE telegram_id = ?"
+    ).bind(telegramId).first();
+    if (Number(selected?.count || 0) === 0) {
+      await ctx.reply("📚 No exam subjects are selected yet.\n\nSend /register and choose up to three subjects.");
+      return;
+    }
+
+    const matching = await env.DB.prepare(
+      `SELECT COUNT(*) AS count
+       FROM exams e
+       JOIN exam_subjects s ON s.id = e.subject_id
+       JOIN user_exam_subjects us ON us.subject_id = s.id AND us.telegram_id = ?
+       LEFT JOIN exam_questions q ON q.exam_id = e.id
+       WHERE e.is_published = 1
+       GROUP BY e.id
+       HAVING COUNT(q.id) > 0
+       LIMIT 1`
+    ).bind(telegramId).first();
+    if (!matching) {
+      await ctx.reply(
+        "📚 No exams have been uploaded for your selected subjects yet.\n\nAsk an admin to use /addquestion and import an exam for one of your selected subjects."
+      );
+      return;
+    }
+
+    await ctx.reply(
+      "🎉 You have completed all available exams for your subjects.\n\nNew exams or exam subjects will appear here when an admin adds them."
+    );
     return;
   }
   const keyboard = new InlineKeyboard();
