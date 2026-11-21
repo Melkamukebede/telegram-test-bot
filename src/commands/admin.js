@@ -3,14 +3,7 @@ import { todayAddis } from "../config.js";
 import { getDailyTarget, setSetting, isPaused } from "../db.js";
 import { postDailyQuestions, postReveals, postPromo } from "../services/scheduler.js";
 import { syncMenuFor } from "../services/menu.js";
-
-// Accepts 1-4 or A-D
-function parseCorrect(s) {
-  const t = s.trim().toUpperCase();
-  if (/^[1-4]$/.test(t)) return Number(t);
-  const i = "ABCD".indexOf(t);
-  return t.length === 1 && i >= 0 ? i + 1 : null;
-}
+import { InlineKeyboard } from "grammy";
 
 export function registerAdminCommands(bot, env) {
   // ================================
@@ -21,23 +14,29 @@ export function registerAdminCommands(bot, env) {
   bot.command("addquestion", async (ctx) => {
     if (!(await requireAdmin(ctx, env))) return;
 
-    const parts = ctx.match.split("|").map((p) => p.trim());
-    const usage =
-      "Usage:\n/addquestion subject | Question | Option A | Option B | Option C | Option D | correct (A-D)\n\n" +
-      "Tip: to add many questions at once, send a .txt file instead.";
-    if (parts.length !== 7 || parts.some((p) => !p)) { await ctx.reply(usage); return; }
+    const args = String(ctx.match || "").trim();
+    if (!args) {
+      const keyboard = new InlineKeyboard()
+        .text("📚 Exam questions", "addq_kind_exam")
+        .text("🗓 Telegram quiz", "addq_kind_quiz")
+        .row()
+        .text("❌ Cancel", "addq_cancel");
+      await ctx.reply("➕ <b>Add questions</b>\n\nChoose what you want to add:", {
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+      return;
+    }
 
-    const [subject, text, a, b, c, d, correctRaw] = parts;
-    const correct = parseCorrect(correctRaw);
-    if (!correct) { await ctx.reply("The correct answer must be A, B, C or D."); return; }
-
-    await env.DB.prepare(
-      `INSERT INTO daily_questions
-       (subject, question_text, option1, option2, option3, option4, correct_option, post_date, is_posted)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`
-    ).bind(subject.toLowerCase(), text, a, b, c, d, correct, todayAddis()).run();
-
-    await ctx.reply(`Question added under "${subject.toLowerCase()}".`);
+    const keyboard = new InlineKeyboard()
+      .text("📚 Exam questions", "addq_kind_exam")
+      .text("🗓 Telegram quiz", "addq_kind_quiz")
+      .row()
+      .text("❌ Cancel", "addq_cancel");
+    await ctx.reply(
+      "Use the guided flow to add questions. Choose a question type below:",
+      { reply_markup: keyboard }
+    );
   });
 
   bot.command("queue", async (ctx) => {

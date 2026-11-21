@@ -40,6 +40,7 @@ async function getReferralStats(env, referrerId) {
 }
 
 export async function refreshReferralAccess(ctx, env, referrerId) {
+  const channelId = env.CHANNEL_ID || REQUIRED_CHANNEL_ID;
   const user = await env.DB.prepare(
     "SELECT telegram_id FROM users WHERE telegram_id = ?"
   ).bind(referrerId).first();
@@ -51,7 +52,7 @@ export async function refreshReferralAccess(ctx, env, referrerId) {
   for (const referral of referrals.results || []) {
     let isMember = false;
     try {
-      const member = await ctx.api.getChatMember(REQUIRED_CHANNEL_ID, referral.referred_id);
+      const member = await ctx.api.getChatMember(channelId, referral.referred_id);
       isMember = ["creator", "administrator", "member"].includes(member.status) ||
         (member.status === "restricted" && member.is_member === true);
     } catch (error) {

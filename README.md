@@ -9,7 +9,8 @@ A Telegram learning bot for university students. It runs on **Cloudflare Workers
 - Compact daily challenge cards with private per-user quizzes and channel answer reveals
 - Student streaks and a Sunday leaderboard
 - Admin question entry with `/addquestion`
-- Bulk question import from `.txt` files
+- Guided `/addquestion` flow for exams or Telegram quizzes
+- Paste question text or upload `.txt` files and preview added questions
 - Exam catalog imports for freshman midterm and final exams by year
 - Registration subject selection with a personal exam library
 - Private four-question-per-page exam practice with scoring

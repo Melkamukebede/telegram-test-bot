@@ -1,11 +1,77 @@
 import { requireAdmin } from "../auth.js";
 import { todayAddis } from "../config.js";
 import { parseQuestionFile } from "../services/parser.js";
+import { InlineKeyboard } from "grammy";
+
+function stateKey(telegramId) {
+  return `add_questions:${telegramId}`;
+}
+
+async function getAddState(env, telegramId) {
+  if (!env.USER_INFO) return null;
+  const value = await env.USER_INFO.get(stateKey(telegramId));
+  if (!value) return null;
+  try { return JSON.parse(value); } catch { return null; }
+}
+
+async function setAddState(env, telegramId, mode, method) {
+  if (!env.USER_INFO) return;
+  await env.USER_INFO.put(
+    stateKey(telegramId),
+    JSON.stringify({ mode, method }),
+    { expirationTtl: 1800 }
+  );
+}
+
+async function clearAddState(env, telegramId) {
+  if (!env.USER_INFO) return;
+  await env.USER_INFO.delete(stateKey(telegramId));
+}
+
+function methodKeyboard(mode) {
+  return new InlineKeyboard()
+    .text("📝 Paste text", `addq_paste_${mode}`)
+    .text("📎 Upload .txt", `addq_file_${mode}`)
+    .row()
+    .text("⬅ Back", "addq_cancel");
+}
 
 export function registerUpload(bot, env) {
+  bot.callbackQuery(/^addq_kind_(exam|quiz)$/, async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    const mode = ctx.match[1];
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      mode === "exam"
+        ? "📚 <b>Exam questions</b>\n\nChoose how to provide the question file:"
+        : "🗓 <b>Telegram quiz questions</b>\n\nChoose how to provide the question file:",
+      { parse_mode: "HTML", reply_markup: methodKeyboard(mode) }
+    );
+  });
+
+  bot.callbackQuery(/^addq_(paste|file)_(exam|quiz)$/, async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    const method = ctx.match[1];
+    const mode = ctx.match[2];
+    await setAddState(env, String(ctx.from.id), mode, method);
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      method === "paste"
+        ? "📝 <b>Paste the complete question text now.</b>\n\nFor exams, include Subject, ExamType, ExamYear and numbered questions. For quiz questions, include Subject and numbered questions."
+        : "📎 <b>Send the .txt file now.</b>\n\nTelegram should show it as a File/document.",
+      { parse_mode: "HTML" }
+    );
+  });
+
+  bot.callbackQuery("addq_cancel", async (ctx) => {
+    if (!(await requireAdmin(ctx, env))) return;
+    await clearAddState(env, String(ctx.from.id));
+    await ctx.answerCallbackQuery({ text: "Cancelled." });
+  });
+
   const importContent = async (ctx, raw) => {
     if (!(await requireAdmin(ctx, env))) return;
-    await importParsed(ctx, env, raw);
+    await importParsed(ctx, env, raw, null);
   };
 
   bot.on("message:document", async (ctx) => {
@@ -22,11 +88,17 @@ export function registerUpload(bot, env) {
     const res = await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${file.file_path}`);
     if (!res.ok) { await ctx.reply("Couldn't download that file. Try sending it again."); return; }
 
-    await importParsed(ctx, env, await res.text());
+    const state = await getAddState(env, String(ctx.from.id));
+    await importParsed(ctx, env, await res.text(), state?.mode || null);
   });
 
   bot.on("message:text", async (ctx, next) => {
     const raw = ctx.message.text;
+    const state = await getAddState(env, String(ctx.from.id));
+    if (state?.method === "paste") {
+      await importParsed(ctx, env, raw, state.mode);
+      return;
+    }
     const looksLikeExam = /Subject:\s*.+/i.test(raw) &&
       /ExamType:\s*(Midterm|Final)/i.test(raw) &&
       /ExamYear:\s*\d{4}/i.test(raw) &&
@@ -36,7 +108,34 @@ export function registerUpload(bot, env) {
   });
 }
 
-async function importParsed(ctx, env, raw) {
+function escQuestion(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function formatAddedQuestions(questions) {
+  if (!questions.length) return "";
+  const lines = [];
+  let length = 0;
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    const answer = ["A", "B", "C", "D"][q.correct - 1];
+    const block =
+      `\n${i + 1}. ${escQuestion(q.text)}\n` +
+      `A) ${escQuestion(q.options[0])}  B) ${escQuestion(q.options[1])}\n` +
+      `C) ${escQuestion(q.options[2])}  D) ${escQuestion(q.options[3])}\n` +
+      `<b>Answer:</b> ${answer}`;
+    if (length + block.length > 2800) break;
+    lines.push(block);
+    length += block.length;
+  }
+  if (questions.length > lines.length) lines.push(`\n<i>…and ${questions.length - lines.length} more</i>`);
+  return "\n\n<b>Added questions:</b>" + lines.join("");
+}
+
+async function importParsed(ctx, env, raw, selectedMode = null) {
     const { meta, questions, warnings } = parseQuestionFile(raw);
 
     // "TD (Technical Drawing)" -> "td": the stable key used by the exam catalog.
@@ -49,7 +148,13 @@ async function importParsed(ctx, env, raw) {
 
     const examType = meta.exam_type.toLowerCase();
     const examYear = Number(meta.exam_year);
-    if (examType || meta.exam_year || meta.exam_title) {
+    const isExamImport = selectedMode === "exam" ||
+      (selectedMode !== "quiz" && Boolean(examType || meta.exam_year || meta.exam_title));
+    if (isExamImport) {
+      if (selectedMode === "exam" && (!meta.exam_type || !meta.exam_year)) {
+        await ctx.reply("Exam imports need `ExamType: Midterm` or `ExamType: Final` and `ExamYear: YYYY`.");
+        return;
+      }
       if (!["midterm", "final"].includes(examType)) {
         await ctx.reply("Exam uploads need `ExamType: Midterm` or `ExamType: Final`.");
         return;
@@ -85,7 +190,16 @@ async function importParsed(ctx, env, raw) {
       const exam = await env.DB.prepare(
         "SELECT id FROM exams WHERE subject_id = ? AND exam_type = ? AND exam_year = ?"
       ).bind(catalogSubject.id, examType, examYear).first();
-      await env.DB.prepare("DELETE FROM exam_questions WHERE exam_id = ?").bind(exam.id).run();
+      // Replacing an exam invalidates old attempts: their question IDs and saved
+      // answers would otherwise belong to a deleted/changed question catalog.
+      await env.DB.batch([
+        env.DB.prepare(
+          `DELETE FROM exam_answers
+           WHERE attempt_id IN (SELECT id FROM exam_attempts WHERE exam_id = ?)`
+        ).bind(exam.id),
+        env.DB.prepare("DELETE FROM exam_attempts WHERE exam_id = ?").bind(exam.id),
+        env.DB.prepare("DELETE FROM exam_questions WHERE exam_id = ?").bind(exam.id),
+      ]);
       const statements = questions.map((q, index) => env.DB.prepare(
         `INSERT INTO exam_questions
          (exam_id, question_number, topic, question_text, option1, option2, option3, option4,
@@ -103,8 +217,11 @@ async function importParsed(ctx, env, raw) {
         `✅ Imported exam: ${title}\n\n` +
         `Subject key: ${subject}\nType: ${examType}\nYear: ${examYear}\n` +
         `Questions: ${questions.length}\nDuration: ${Number.isInteger(duration) && duration > 0 ? duration : 45} minutes\n` +
-        (warnings.length ? `\n⚠️ Warnings:\n${warnings.slice(0, 5).join("\n")}\n` : "")
+        (warnings.length ? `\n⚠️ Warnings:\n${warnings.slice(0, 5).join("\n")}\n` : "") +
+        formatAddedQuestions(questions),
+        { parse_mode: "HTML" }
       );
+      await clearAddState(env, String(ctx.from.id));
       return;
     }
 
@@ -115,11 +232,13 @@ async function importParsed(ctx, env, raw) {
 
     const batchId = Date.now().toString();
     const statements = [];
+    const addedQuestions = [];
     let duplicates = 0;
 
     for (const q of questions) {
       if (seen.has(q.text)) { duplicates++; continue; }
       seen.add(q.text);
+      addedQuestions.push(q);
       statements.push(
         env.DB.prepare(
           `INSERT INTO daily_questions
@@ -143,6 +262,9 @@ async function importParsed(ctx, env, raw) {
         `Subject key: ${subject}\nGrade: ${meta.grade || "-"}\nTopic: ${meta.topic || "-"}\n` +
         `Duplicates skipped: ${duplicates}\nBatch ID: ${batchId}\n` +
         (warnings.length ? `\n⚠️ Warnings:\n${warnings.slice(0, 5).join("\n")}\n` : "") +
-        `\nNext: /setplan ${subject} 3`
+        `\nNext: /setplan ${subject} 3` +
+        formatAddedQuestions(addedQuestions),
+      { parse_mode: "HTML" }
     );
+    await clearAddState(env, String(ctx.from.id));
 }

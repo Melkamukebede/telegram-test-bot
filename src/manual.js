@@ -34,11 +34,12 @@ export const MANUAL_SECTIONS = [
   {
     title: "🛠 Admin exam upload",
     lines: [
-      "1. Create a .txt file with the exam headers below.",
-      "2. Number questions consecutively from 1.",
-      "3. Include A), B), C), D), Answer:, and optional Explanation: lines.",
-      "4. Either paste the complete text directly into the bot or send it as a .txt Telegram File.",
-      "5. Re-uploading the same subject, type, and year replaces that exam safely.",
+      "1. Send /addquestion, then choose Exam questions or Telegram quiz.",
+      "2. Choose Paste text or Upload .txt file.",
+      "3. Number questions consecutively from 1.",
+      "4. Include A), B), C), D), Answer:, and optional Explanation: lines.",
+      "5. The bot confirms the import and shows the added questions.",
+      "6. Re-uploading the same exam subject, type, and year replaces that exam safely.",
       "Required headers: Subject, ExamType (Midterm or Final), ExamYear.",
       "Optional headers: ExamTitle, DurationMinutes, Topic.",
     ],
