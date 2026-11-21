@@ -25,13 +25,14 @@ export function registerUpload(bot, env) {
     await importParsed(ctx, env, await res.text());
   });
 
-  bot.on("message:text", async (ctx) => {
+  bot.on("message:text", async (ctx, next) => {
     const raw = ctx.message.text;
     const looksLikeExam = /Subject:\s*.+/i.test(raw) &&
       /ExamType:\s*(Midterm|Final)/i.test(raw) &&
       /ExamYear:\s*\d{4}/i.test(raw) &&
       /^\s*1\.\s+.+/m.test(raw);
     if (looksLikeExam) await importContent(ctx, raw);
+    else await next();
   });
 }
 
