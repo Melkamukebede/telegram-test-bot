@@ -4,7 +4,7 @@ export const MANUAL_SECTIONS = [
     lines: [
       "1. Send /start, then /register.",
       "2. Answer university, major, city, and semester questions.",
-      "3. Select exactly three exam subjects.",
+      "3. Select up to three available exam subjects.",
       "4. Send /invite and share your personal link with three students.",
       "5. Ask at least two referred students to join channel -1003958927040.",
       "6. Send /unlock, then /exams after access is unlocked.",

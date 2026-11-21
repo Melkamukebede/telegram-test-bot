@@ -165,7 +165,7 @@ Topic: Mechanics
 and year replaces that exam's questions, making corrections safe and repeatable.
 
 After the university, major, city, and semester questions, each student selects
-three exam subjects. The `/exams` command then lists the available midterm and
+up to three available exam subjects. The `/exams` command then lists the available midterm and
 final exams for those subjects. Students can select an exam, answer privately
 one question at a time, and receive a final score.
 

@@ -18,8 +18,9 @@ async function subjectPrompt(env, telegramId, step = 1) {
   ).bind(telegramId).all();
   const used = new Set((selected.results || []).map((r) => r.subject_id));
   const available = subjects.filter((s) => !used.has(s.id));
+  const target = Math.min(3, subjects.length);
   if (!available.length) return "No more exam subjects are available.";
-  return `📚 Choose subject ${step} of 3:\n\n` +
+  return `📚 Choose subject ${step} of ${target}:\n\n` +
     available.map((s, i) => `${i + 1}. ${s.display_name}`).join("\n") +
     "\n\nReply with the number.";
 }
@@ -59,6 +60,7 @@ export function registerRegistration(bot, env) {
     if (user.step.startsWith("awaiting_subject_")) {
       const step = Number(user.step.slice("awaiting_subject_".length));
       const subjects = await getExamSubjects(env);
+      const target = Math.min(3, subjects.length);
       const selected = await env.DB.prepare(
         "SELECT subject_id FROM user_exam_subjects WHERE telegram_id = ?"
       ).bind(id).all();
@@ -72,7 +74,7 @@ export function registerRegistration(bot, env) {
       await env.DB.prepare(
         "INSERT INTO user_exam_subjects (telegram_id, subject_id, selected_at) VALUES (?, ?, ?)"
       ).bind(id, available[n - 1].id, new Date().toISOString()).run();
-      if (step < 3) {
+      if (step < target) {
         await upsertUser(env, id, { step: `awaiting_subject_${step + 1}` });
         await ctx.reply(await subjectPrompt(env, id, step + 1));
       } else {
