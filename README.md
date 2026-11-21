@@ -12,9 +12,8 @@ A Telegram learning bot for university students. It runs on **Cloudflare Workers
 - Guided `/addquestion` flow for exams or Telegram quizzes
 - Paste question text or upload `.txt` files and preview added questions
 - Exam catalog imports for freshman midterm and final exams by year
-- Registration subject selection with a personal exam library
+ - Open access to the full published exam library
 - Private four-question-per-page exam practice with scoring
-- Referral and channel-membership unlock for exam access
 - Daily subject plans and configurable question quotas
 - Pause/resume controls for scheduled posting
 - Sinahard promotional posts
@@ -91,8 +90,6 @@ explanations are posted together in the channel at the evening reveal time.
 | `/register` | Start or restart registration |
 | `/myinfo` | Show saved registration information |
 | `/exams` | Open the private exam library |
-| `/invite` | Get a personal referral link |
-| `/unlock` | Check referral unlock progress |
 | `/manual` | Open the full usage manual |
 | `/app` | Show the Sinahard app link |
 | `/help` | Show available help |
@@ -120,12 +117,10 @@ Admins use these commands in a private chat with the bot:
    `npx wrangler d1 execute freshman_hub_db --remote --file=schema.sql`
 2. Make the bot an administrator in channel `-1003958927040`.
 3. Deploy and monitor logs with `npm run deploy` and `npm run tail`.
-4. As a student, send `/start`, `/register`, and choose three subjects.
-5. Send `/invite`; test with three different Telegram accounts using the generated link.
-6. Ask two referred accounts to join the required channel, then send `/unlock`.
-7. Send `/exams`, choose an exam, answer four questions, confirm each answer reveals its explanation, and verify **Next 4 questions** appears only after all four are answered.
-8. Interrupt an attempt and send `/exams` again to verify it resumes at the first unanswered page.
-9. As an admin, upload an exam `.txt` file, then repeat steps 4–8.
+4. As a student, send `/start`, `/register`, then send `/exams`.
+5. Choose any exam, answer four questions, confirm each answer reveals its explanation, and verify **Next 4 questions** appears only after all four are answered.
+6. Interrupt an attempt and send `/exams` again to verify it resumes at the first unanswered page.
+7. As an admin, upload an exam `.txt` file, then repeat steps 4–6.
 
 Use `/manual` inside Telegram for the same student, admin, upload, testing, and
 troubleshooting instructions in split messages that fit Telegram's message limit.
@@ -165,22 +160,17 @@ Topic: Mechanics
 `ExamType` must be `Midterm` or `Final`. Re-uploading the same subject, exam type,
 and year replaces that exam's questions, making corrections safe and repeatable.
 
-After the university, major, city, and semester questions, each student selects
-up to three available exam subjects. The `/exams` command then lists the available midterm and
-final exams for those subjects. Students can select an exam, answer privately
-one question at a time, and receive a final score.
+After the university, major, city, and semester questions, `/exams` lists every
+published midterm and final exam. Students do not need to select subjects or
+complete referrals before opening an exam. Students can select any exam,
+answer privately one question at a time, and receive a final score.
 
 The `/exams` command now opens a button-based private exam library. Selecting an
 exam creates a resumable attempt with four questions per page. Each question
 keeps its answer and explanation hidden until the student chooses A-D, then
 immediately reveals the student's choice, the correct answer, and explanation.
-Completed exams are hidden from `/exams`; active exams appear with a Resume label.
+All published exams remain visible; active exams appear with a Resume label.
 The final score is shown after the last question.
-
-Exam access is protected by `/invite` and `/unlock`: a student must bring three
-unique students into the bot, and at least two of those referred students must
-join channel `-1003958927040`. The bot must be an administrator in that channel
-to verify membership.
 
 ## Database
 

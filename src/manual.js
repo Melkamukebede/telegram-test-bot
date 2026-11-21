@@ -4,10 +4,7 @@ export const MANUAL_SECTIONS = [
     lines: [
       "1. Send /start, then /register.",
       "2. Answer university, major, city, and semester questions.",
-      "3. Select up to three available exam subjects.",
-      "4. Send /invite and share your personal link with three students.",
-      "5. Ask at least two referred students to join channel -1003958927040.",
-      "6. Send /unlock, then /exams after access is unlocked.",
+      "3. Send /exams to view every available published exam.",
     ],
   },
   {
@@ -28,7 +25,7 @@ export const MANUAL_SECTIONS = [
       "• Questions are posted at 9:00 AM Addis Ababa time on Tuesday, Friday, Saturday, and Sunday.",
       "• Tap Start today's quiz in the channel card to answer privately.",
       "• Answers and explanations are revealed in the channel at 7:00 PM.",
-      "• Use /myinfo for your registration, subjects, and streak.",
+      "• Use /myinfo for your registration and streak.",
     ],
   },
   {
@@ -59,9 +56,7 @@ export const MANUAL_SECTIONS = [
   {
     title: "⚙️ Troubleshooting",
     lines: [
-      "• If /exams is locked, use /invite and /unlock.",
-      "• The bot must be an administrator in channel -1003958927040 for membership checks.",
-      "• If no exams appear, an admin must upload and publish an exam for one of your three subjects.",
+      "• If no exams appear, an admin must upload and publish at least one exam.",
       "• If scheduled posts do not run, check Cloudflare deployment, cron triggers, D1 migrations, and /tail logs.",
     ],
   },

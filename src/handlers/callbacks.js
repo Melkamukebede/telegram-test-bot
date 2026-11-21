@@ -1,11 +1,10 @@
 import { isPrivate, roleOf, isAdmin } from "../auth.js";
 import { InlineKeyboard } from "grammy";
-import { getExamSubjects, getUser, startRegistration } from "../db.js";
+import { getUser, startRegistration } from "../db.js";
 import { questionText, todayAddis } from "../config.js";
 import { mainMenuScreen, infoScreen, helpScreen } from "../screens.js";
 import { postLeaderboard } from "../services/scheduler.js";
 import { answerExam, nextExamPage, startExam } from "../services/exams.js";
-import { checkReferralUnlock, sendReferralInvite } from "../services/referrals.js";
 import {
   answerKeyboard,
   formatExpandedQuestion,
@@ -22,15 +21,6 @@ async function show(ctx, text, keyboard) {
 }
 
 export function registerCallbacks(bot, env) {
-  bot.callbackQuery("show_referrals", async (ctx) => {
-    await ctx.answerCallbackQuery();
-    await sendReferralInvite(ctx, env);
-  });
-
-  bot.callbackQuery("check_referrals", async (ctx) => {
-    await checkReferralUnlock(ctx, env);
-  });
-
   bot.callbackQuery(/^exam_start_(\d+)$/, async (ctx) => {
     await startExam(ctx, env, Number(ctx.match[1]));
   });
@@ -81,11 +71,7 @@ export function registerCallbacks(bot, env) {
   bot.callbackQuery("start_register", async (ctx) => {
     await startRegistration(env, String(ctx.from.id), ctx.from.first_name);
     await ctx.answerCallbackQuery();
-    const subjects = await getExamSubjects(env);
-    const text = subjects.length
-      ? questionText(0)
-      : "No exam subjects are available yet. Please try again after the admin uploads the first exam.";
-    await show(ctx, text, new InlineKeyboard().text("⬅ Back", "main_menu"));
+    await show(ctx, questionText(0), new InlineKeyboard().text("⬅ Back", "main_menu"));
   });
 
   bot.callbackQuery(/^view_question_(\d+)$/, async (ctx) => {

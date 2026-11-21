@@ -27,7 +27,6 @@ export async function startRegistration(env, telegramId, firstName = "") {
   const fields = { step: "awaiting_university" };
   if (firstName) fields.first_name = firstName.slice(0, 20);
   if (!existing) fields.registered_at = new Date().toISOString();
-  await env.DB.prepare("DELETE FROM user_exam_subjects WHERE telegram_id = ?").bind(telegramId).run();
   await upsertUser(env, telegramId, fields);
 }
 

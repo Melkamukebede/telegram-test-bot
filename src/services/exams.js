@@ -1,6 +1,4 @@
 import { InlineKeyboard } from "grammy";
-import { requireExamAccess } from "./referrals.js";
-
 const PAGE_SIZE = 4;
 const LETTERS = ["A", "B", "C", "D"];
 
@@ -43,9 +41,8 @@ async function selectedExam(env, telegramId, examId) {
   return env.DB.prepare(
     `SELECT e.*, s.display_name FROM exams e
      JOIN exam_subjects s ON s.id = e.subject_id
-     JOIN user_exam_subjects us ON us.subject_id = s.id AND us.telegram_id = ?
      WHERE e.id = ? AND e.is_published = 1`
-  ).bind(telegramId, examId).first();
+  ).bind(examId).first();
 }
 
 export async function examCatalog(env, telegramId) {
@@ -60,56 +57,20 @@ export async function examCatalog(env, telegramId) {
               ) AS is_active
      FROM exams e
      JOIN exam_subjects s ON s.id = e.subject_id
-     JOIN user_exam_subjects us ON us.subject_id = s.id AND us.telegram_id = ?
      LEFT JOIN exam_questions q ON q.exam_id = e.id
      WHERE e.is_published = 1
-       AND NOT EXISTS(
-         SELECT 1 FROM exam_attempts completed_attempt
-         WHERE completed_attempt.exam_id = e.id
-           AND completed_attempt.telegram_id = ?
-           AND completed_attempt.status = 'completed'
-       )
      GROUP BY e.id
      HAVING COUNT(q.id) > 0
      ORDER BY is_active DESC, s.display_name, e.exam_year DESC, e.exam_type`
-  ).bind(telegramId, telegramId, telegramId).all();
+  ).bind(telegramId).all();
   return results || [];
 }
 
 export async function sendExamCatalog(ctx, env) {
-  if (!(await requireExamAccess(ctx, env))) return;
   const telegramId = String(ctx.from.id);
   const exams = await examCatalog(env, telegramId);
   if (!exams.length) {
-    const selected = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM user_exam_subjects WHERE telegram_id = ?"
-    ).bind(telegramId).first();
-    if (Number(selected?.count || 0) === 0) {
-      await ctx.reply("📚 No exam subjects are selected yet.\n\nSend /register and choose up to three subjects.");
-      return;
-    }
-
-    const matching = await env.DB.prepare(
-      `SELECT COUNT(*) AS count
-       FROM exams e
-       JOIN exam_subjects s ON s.id = e.subject_id
-       JOIN user_exam_subjects us ON us.subject_id = s.id AND us.telegram_id = ?
-       LEFT JOIN exam_questions q ON q.exam_id = e.id
-       WHERE e.is_published = 1
-       GROUP BY e.id
-       HAVING COUNT(q.id) > 0
-       LIMIT 1`
-    ).bind(telegramId).first();
-    if (!matching) {
-      await ctx.reply(
-        "📚 No exams have been uploaded for your selected subjects yet.\n\nAsk an admin to use /addquestion and import an exam for one of your selected subjects."
-      );
-      return;
-    }
-
-    await ctx.reply(
-      "🎉 You have completed all available exams for your subjects.\n\nNew exams or exam subjects will appear here when an admin adds them."
-    );
+    await ctx.reply("📚 No published exams are available yet.\n\nNew exams will appear here when an admin adds them.");
     return;
   }
   const keyboard = new InlineKeyboard();
@@ -203,10 +164,6 @@ async function firstUnansweredPage(env, attempt) {
 }
 
 export async function startExam(ctx, env, examId) {
-  if (!(await requireExamAccess(ctx, env))) {
-    await ctx.answerCallbackQuery({ text: "Unlock exam access first.", show_alert: true });
-    return;
-  }
   const telegramId = String(ctx.from.id);
   const exam = await selectedExam(env, telegramId, examId);
   if (!exam) {
