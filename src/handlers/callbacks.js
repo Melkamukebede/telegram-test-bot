@@ -10,6 +10,7 @@ import {
   formatExpandedQuestion,
   formatReveal,
 } from "../services/formatters.js";
+import { checkReferralUnlock, sendReferralInvite } from "../services/referrals.js";
 
 // Edit the message in place; ignore Telegram's "message is not modified" error
 async function show(ctx, text, keyboard) {
@@ -21,6 +22,15 @@ async function show(ctx, text, keyboard) {
 }
 
 export function registerCallbacks(bot, env) {
+  bot.callbackQuery("show_referrals", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await sendReferralInvite(ctx, env);
+  });
+
+  bot.callbackQuery("check_referrals", async (ctx) => {
+    await checkReferralUnlock(ctx, env);
+  });
+
   bot.callbackQuery(/^exam_start_(\d+)$/, async (ctx) => {
     await startExam(ctx, env, Number(ctx.match[1]));
   });

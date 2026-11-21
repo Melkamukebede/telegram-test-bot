@@ -1,6 +1,20 @@
 import { InlineKeyboard } from "grammy";
+import { getReferralStatus, sendReferralInvite } from "./referrals.js";
+
 const PAGE_SIZE = 4;
 const LETTERS = ["A", "B", "C", "D"];
+const FREE_COMPLETED_EXAMS = 3;
+
+async function examAccessState(env, telegramId) {
+  const completed = await env.DB.prepare(
+    "SELECT COUNT(DISTINCT exam_id) AS count FROM exam_attempts WHERE telegram_id = ? AND status = 'completed'"
+  ).bind(telegramId).first();
+  const referral = await getReferralStatus(env, telegramId);
+  return {
+    unlocked: referral.unlocked,
+    locked: !referral.unlocked && Number(completed?.count || 0) >= FREE_COMPLETED_EXAMS,
+  };
+}
 
 function esc(value) {
   return String(value || "")
@@ -55,6 +69,12 @@ export async function examCatalog(env, telegramId) {
                   AND active_attempt.telegram_id = ?
                   AND active_attempt.status = 'active'
               ) AS is_active
+            , EXISTS(
+                SELECT 1 FROM exam_attempts completed_attempt
+                WHERE completed_attempt.exam_id = e.id
+                  AND completed_attempt.telegram_id = ?
+                  AND completed_attempt.status = 'completed'
+              ) AS is_completed
      FROM exams e
      JOIN exam_subjects s ON s.id = e.subject_id
      LEFT JOIN exam_questions q ON q.exam_id = e.id
@@ -62,8 +82,12 @@ export async function examCatalog(env, telegramId) {
      GROUP BY e.id
      HAVING COUNT(q.id) > 0
      ORDER BY is_active DESC, s.display_name, e.exam_year DESC, e.exam_type`
-  ).bind(telegramId).all();
-  return results || [];
+  ).bind(telegramId, telegramId).all();
+  const access = await examAccessState(env, telegramId);
+  return (results || []).map((exam) => ({
+    ...exam,
+    is_locked: access.locked && !exam.is_active && !exam.is_completed,
+  }));
 }
 
 export async function sendExamCatalog(ctx, env) {
@@ -76,9 +100,13 @@ export async function sendExamCatalog(ctx, env) {
   const keyboard = new InlineKeyboard();
   for (const exam of exams) {
     keyboard.text(
-      `${exam.is_active ? "▶️ Resume" : "📝"} ${exam.display_name} • ${exam.exam_type.toUpperCase()} ${exam.exam_year}`,
+      `${exam.is_locked ? "🔒" : exam.is_active ? "▶️ Resume" : "📝"} ${exam.display_name} • ${exam.exam_type.toUpperCase()} ${exam.exam_year}`,
       `exam_start_${exam.id}`
     ).row();
+  }
+  const access = await examAccessState(env, telegramId);
+  if (access.locked) {
+    keyboard.row().text("🎓 Unlock exam practice", "show_referrals");
   }
   await ctx.reply(
     "📚 <b>Choose an exam to practice</b>\n\nEach page contains four questions. Answers and explanations appear after each choice.",
@@ -170,6 +198,18 @@ export async function startExam(ctx, env, examId) {
     await ctx.answerCallbackQuery({ text: "This exam is not available for your account.", show_alert: true });
     return;
   }
+  const existing = await env.DB.prepare(
+    "SELECT id FROM exam_attempts WHERE telegram_id = ? AND exam_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+  ).bind(telegramId, examId).first();
+  const completed = await env.DB.prepare(
+    "SELECT id FROM exam_attempts WHERE telegram_id = ? AND exam_id = ? AND status = 'completed' LIMIT 1"
+  ).bind(telegramId, examId).first();
+  const access = await examAccessState(env, telegramId);
+  if (access.locked && !existing && !completed) {
+    await ctx.answerCallbackQuery({ text: "Unlock exam practice to access more exams.", show_alert: true });
+    await sendReferralInvite(ctx, env);
+    return;
+  }
   const { results: questions } = await env.DB.prepare(
     "SELECT id FROM exam_questions WHERE exam_id = ? ORDER BY question_number"
   ).bind(examId).all();
@@ -177,9 +217,6 @@ export async function startExam(ctx, env, examId) {
     await ctx.answerCallbackQuery({ text: "This exam has no questions yet.", show_alert: true });
     return;
   }
-  const existing = await env.DB.prepare(
-    "SELECT id FROM exam_attempts WHERE telegram_id = ? AND exam_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
-  ).bind(telegramId, examId).first();
   const attemptId = existing
     ? existing.id
     : (await env.DB.prepare(
